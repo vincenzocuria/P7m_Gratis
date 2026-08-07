@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build / PyInstaller / InnoSetup outputs
+build/
+dist/
+*.spec
+*.iss.bak
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.tmp
