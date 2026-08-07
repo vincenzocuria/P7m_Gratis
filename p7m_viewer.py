@@ -309,6 +309,11 @@ class P7MViewerWindow(QMainWindow):
         act_update.triggered.connect(lambda: self.check_for_updates(manual=True))
         menu_help.addAction(act_update)
 
+        act_website = QAction("🌐 Visita vcuria.app (Sito Autore)", self)
+        act_website.setStatusTip("Apri il sito ufficiale dell'autore (vcuria.app)")
+        act_website.triggered.connect(self.open_author_website)
+        menu_help.addAction(act_website)
+
         menu_help.addSeparator()
 
         act_info = QAction("ℹ️ Informazioni e Crediti", self)
@@ -697,9 +702,10 @@ class P7MViewerWindow(QMainWindow):
         self.lbl_status_msg.setObjectName("FooterStatus")
 
         lbl_footer_credits = QLabel(
-            "P7M Viewer PA • Vincenzo Curia | <i>Strumento informativo (senza validità legale formale)</i>"
+            "P7M Viewer PA • <a href='https://vcuria.app' style='text-decoration:none;'>Vincenzo Curia (vcuria.app)</a> | <i>Strumento informativo (senza validità legale formale)</i>"
         )
         lbl_footer_credits.setObjectName("FooterCredits")
+        lbl_footer_credits.setOpenExternalLinks(True)
 
         footer_layout.addWidget(self.lbl_status_msg)
         footer_layout.addStretch()
@@ -1216,11 +1222,14 @@ class P7MViewerWindow(QMainWindow):
         else:
             self.lbl_status_msg.setText("Pronto")
 
+    def open_author_website(self):
+        QDesktopServices.openUrl(QUrl("https://vcuria.app"))
+
     def show_info_dialog(self):
         msg = (
             f"<h2>🛡️ P7M Viewer PA — v{APP_VERSION}</h2>"
             "<p>Software Gratuito per la visualizzazione rapida ed immediata di file firmati digitalmente (.p7m / .p7s).</p>"
-            "<p><b>Sviluppato da:</b> Vincenzo Curia</p>"
+            "<p><b>Sviluppato da:</b> <a href='https://vcuria.app'>Vincenzo Curia (vcuria.app)</a></p>"
             "<p><b>Repository GitHub:</b> <a href='https://github.com/vincenzocuria/P7m_Gratis'>https://github.com/vincenzocuria/P7m_Gratis</a></p>"
             "<hr>"
             "<p><b>Funzionalità:</b> Interfaccia Material Design 3 Expressive, Supporto Temi Chiaro/Scuro/Automatico, Gestione File Recenti, Estrazione busta CAdES/PKCS#7, Controllo Aggiornamenti, anteprima PDF vettoriale, XML formattato ad albero, testi ed immagini.</p>"
