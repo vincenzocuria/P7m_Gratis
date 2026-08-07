@@ -21,7 +21,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "assocp7m"; Description: "Associa i file .p7m a P7M Viewer PA per l'apertura automatica"; GroupDescription: "Integrazione di sistema:"
 
 [Files]
-Source: "dist\P7MViewer\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\P7MViewer.exe"; DestDir: "{app}"; Flags: ignoreversion
+
 
 [Icons]
 Name: "{group}\P7M Viewer PA"; Filename: "{app}\P7MViewer.exe"
