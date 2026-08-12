@@ -15,6 +15,9 @@ class TestP7MDecoder(unittest.TestCase):
         signer = res["signer_info"]
         self.assertEqual(signer["signer_name"], "MARIO ROSSI")
         self.assertEqual(signer["tax_code"], "RSSMRA80A01H501Z")
+        self.assertTrue(signer.get("crypto_valid", False))
+        self.assertTrue(signer.get("digest_matches", False))
+        self.assertTrue(signer.get("is_qtsp_qualified", False))
 
     def test_xml_extraction(self):
         filepath = "samples/fattura_FPA12.xml.p7m"
@@ -24,6 +27,9 @@ class TestP7MDecoder(unittest.TestCase):
         self.assertEqual(res["mime_type"], "text/xml")
         self.assertEqual(res["ext"], ".xml")
         self.assertIn(b"FatturaElettronica", res["payload"])
+        signer = res["signer_info"]
+        self.assertTrue(signer.get("crypto_valid", False))
+        self.assertTrue(signer.get("digest_matches", False))
 
     def test_txt_extraction(self):
         filepath = "samples/verbale_giunta.txt.p7m"
@@ -33,6 +39,9 @@ class TestP7MDecoder(unittest.TestCase):
         self.assertEqual(res["mime_type"], "text/plain")
         self.assertEqual(res["ext"], ".txt")
         self.assertIn(b"VERBALE DI DELIBERAZIONE", res["payload"])
+        signer = res["signer_info"]
+        self.assertTrue(signer.get("crypto_valid", False))
+        self.assertTrue(signer.get("digest_matches", False))
 
     def test_png_extraction(self):
         filepath = "samples/certificato_allegato.png.p7m"
@@ -42,6 +51,9 @@ class TestP7MDecoder(unittest.TestCase):
         self.assertEqual(res["mime_type"], "image/png")
         self.assertEqual(res["ext"], ".png")
         self.assertTrue(res["payload"].startswith(b"\x89PNG"))
+        signer = res["signer_info"]
+        self.assertTrue(signer.get("crypto_valid", False))
+        self.assertTrue(signer.get("digest_matches", False))
 
 
 class TestUpdateChecker(unittest.TestCase):

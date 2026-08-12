@@ -30,7 +30,7 @@ except ImportError:
 
 from p7m_decoder import P7MDecoder
 
-APP_VERSION = "1.0.0"
+APP_VERSION = "2.0.0"
 GITHUB_REPO = "vincenzocuria/P7m_Gratis"
 
 
@@ -45,8 +45,8 @@ class UpdateCheckerThread(QThread):
 
     def run(self):
         import urllib.request
+        import urllib.error
         import json
-        import re
 
         url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
         headers = {
@@ -69,8 +69,15 @@ class UpdateCheckerThread(QThread):
                     else:
                         self.no_update_found.emit(self.current_version)
                     return
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                # Se non esiste ancora alcuna release su GitHub, trattalo come nessun nuovo aggiornamento
+                self.no_update_found.emit(self.current_version)
+                return
+            self.check_failed.emit(f"HTTP Error {e.code}")
+            return
         except Exception:
-            # Fallback check on tags endpoint if releases/latest is empty or fails
+            # Check su /tags come fallback
             try:
                 tags_url = f"https://api.github.com/repos/{GITHUB_REPO}/tags"
                 req = urllib.request.Request(tags_url, headers=headers)
@@ -87,11 +94,11 @@ class UpdateCheckerThread(QThread):
                             else:
                                 self.no_update_found.emit(self.current_version)
                                 return
-            except Exception as e:
-                self.check_failed.emit(str(e))
+            except Exception as ex:
+                self.check_failed.emit(str(ex))
                 return
 
-            self.check_failed.emit("Nessuna release trovata.")
+            self.no_update_found.emit(self.current_version)
             return
 
     @staticmethod
@@ -474,18 +481,18 @@ class P7MViewerWindow(QMainWindow):
         section_sig.setObjectName("SectionHeader")
         card_layout.addWidget(section_sig)
 
-        grid = QGridLayout()
-        grid.setVerticalSpacing(6)
-        grid.setHorizontalSpacing(8)
+        form_sig = QFormLayout()
+        form_sig.setVerticalSpacing(8)
+        form_sig.setHorizontalSpacing(10)
+        form_sig.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        form_sig.setRowWrapPolicy(QFormLayout.DontWrapRows)
+        form_sig.setLabelAlignment(Qt.AlignLeft | Qt.AlignTop)
+        form_sig.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
 
-        row = 0
         def add_info_row(label_text, value_widget):
-            nonlocal row
             lbl = QLabel(label_text)
             lbl.setObjectName("FieldLabel")
-            grid.addWidget(lbl, row, 0, Qt.AlignTop | Qt.AlignLeft)
-            grid.addWidget(value_widget, row, 1, Qt.AlignTop | Qt.AlignLeft)
-            row += 1
+            form_sig.addRow(lbl, value_widget)
 
         self.val_signer = QLabel("-")
         self.val_signer.setObjectName("FieldValueBold")
@@ -506,12 +513,32 @@ class P7MViewerWindow(QMainWindow):
         self.val_issuer.setWordWrap(True)
         add_info_row("Emesso da CA:", self.val_issuer)
 
+        self.val_crypto = QLabel("-")
+        self.val_crypto.setObjectName("FieldValue")
+        self.val_crypto.setWordWrap(True)
+        add_info_row("Integrità Firma:", self.val_crypto)
+
+        self.val_qtsp = QLabel("-")
+        self.val_qtsp.setObjectName("FieldValue")
+        self.val_qtsp.setWordWrap(True)
+        add_info_row("Accredito eIDAS:", self.val_qtsp)
+
+        self.val_revocation = QLabel("-")
+        self.val_revocation.setObjectName("FieldValue")
+        self.val_revocation.setWordWrap(True)
+        add_info_row("Stato Revoca:", self.val_revocation)
+
+        self.val_timestamp = QLabel("-")
+        self.val_timestamp.setObjectName("FieldValue")
+        self.val_timestamp.setWordWrap(True)
+        add_info_row("Marca Temporale:", self.val_timestamp)
+
         self.val_validity = QLabel("-")
         self.val_validity.setObjectName("FieldValue")
         self.val_validity.setWordWrap(True)
-        add_info_row("Validità:", self.val_validity)
+        add_info_row("Validità Certificati:", self.val_validity)
 
-        card_layout.addLayout(grid)
+        card_layout.addLayout(form_sig)
 
         div = QFrame()
         div.setFrameShape(QFrame.HLine)
@@ -522,33 +549,33 @@ class P7MViewerWindow(QMainWindow):
         section_doc.setObjectName("SectionHeader")
         card_layout.addWidget(section_doc)
 
-        grid_doc = QGridLayout()
-        grid_doc.setVerticalSpacing(6)
-        grid_doc.setHorizontalSpacing(8)
+        form_doc = QFormLayout()
+        form_doc.setVerticalSpacing(8)
+        form_doc.setHorizontalSpacing(10)
+        form_doc.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        form_doc.setRowWrapPolicy(QFormLayout.DontWrapRows)
+        form_doc.setLabelAlignment(Qt.AlignLeft | Qt.AlignTop)
+        form_doc.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
+
+        def add_doc_row(label_text, value_widget):
+            lbl = QLabel(label_text)
+            lbl.setObjectName("FieldLabel")
+            form_doc.addRow(lbl, value_widget)
 
         self.val_inner_name = QLabel("-")
         self.val_inner_name.setObjectName("FieldValueBold")
         self.val_inner_name.setWordWrap(True)
-        lbl_in = QLabel("Nome File:")
-        lbl_in.setObjectName("FieldLabel")
-        grid_doc.addWidget(lbl_in, 0, 0)
-        grid_doc.addWidget(self.val_inner_name, 0, 1)
+        add_doc_row("Nome File:", self.val_inner_name)
 
         self.val_mime = QLabel("-")
         self.val_mime.setObjectName("FieldValueTag")
-        lbl_mi = QLabel("Formato:")
-        lbl_mi.setObjectName("FieldLabel")
-        grid_doc.addWidget(lbl_mi, 1, 0)
-        grid_doc.addWidget(self.val_mime, 1, 1)
+        add_doc_row("Formato:", self.val_mime)
 
         self.val_size = QLabel("-")
         self.val_size.setObjectName("FieldValue")
-        lbl_sz = QLabel("Dimensione:")
-        lbl_sz.setObjectName("FieldLabel")
-        grid_doc.addWidget(lbl_sz, 2, 0)
-        grid_doc.addWidget(self.val_size, 2, 1)
+        add_doc_row("Dimensione:", self.val_size)
 
-        card_layout.addLayout(grid_doc)
+        card_layout.addLayout(form_doc)
 
         sha_box = QVBoxLayout()
         sha_box.setSpacing(3)
@@ -908,21 +935,65 @@ class P7MViewerWindow(QMainWindow):
         self.act_export.setEnabled(True)
 
         signer = res["signer_info"]
-        if signer.get('is_expired'):
+
+        crypto_valid = signer.get("crypto_valid", True)
+        digest_matches = signer.get("digest_matches", True)
+        is_expired = signer.get("is_expired", False)
+        is_qtsp = signer.get("is_qtsp_qualified", True)
+        rev_status = signer.get("revocation_status", "GOOD")
+        ts_present = signer.get("timestamp_present", False)
+        ts_valid = signer.get("timestamp_valid", False)
+
+        if not crypto_valid or not digest_matches:
+            self.status_badge.setObjectName("StatusBadgeError")
+            self.lbl_badge_text.setText("❌ FIRMA O IMPRONTA NON VALIDA")
+            self.lbl_badge_sub.setText("Integrità crittografica compromessa o firma corrotta")
+        elif is_expired:
             self.status_badge.setObjectName("StatusBadgeWarning")
             self.lbl_badge_text.setText("⚠️ CERTIFICATO SCADUTO")
-            self.lbl_badge_sub.setText("Certificato di firma non più valido alla data odierna")
+            self.lbl_badge_sub.setText("Certificato non più valido alla data odierna")
         else:
             self.status_badge.setObjectName("StatusBadgeSuccess")
-            self.lbl_badge_text.setText("✅ FIRMA STRUTTURALMENTE VALIDA")
-            self.lbl_badge_sub.setText("Busta CAdES/PKCS#7 estratta correttamente")
-        
+            self.lbl_badge_text.setText("🟢 DOCUMENTO INTEGRO E VERIFICATO")
+            self.lbl_badge_sub.setText("Firma crittografica verificata con esito positivo")
+
         self.status_badge.setStyle(self.status_badge.style())
 
         self.val_signer.setText(signer['signer_name'])
         self.val_taxcode.setText(signer['tax_code'] or "Non specificato")
         self.val_org.setText(signer['organization'] or "Non specificato")
         self.val_issuer.setText(signer['issuer'] or "CA Sconosciuta")
+
+        # Cryptographic verification details
+        algo = signer.get("algorithm", "RSA-SHA256")
+        if crypto_valid and digest_matches:
+            self.val_crypto.setText(f"🟢 {algo} (Math OK)")
+        else:
+            self.val_crypto.setText(f"❌ {algo} (Fallita)")
+
+        # QTSP Accredited status
+        qtsp_name = signer.get("qtsp_name", "Qualificato")
+        if is_qtsp:
+            self.val_qtsp.setText(f"🟢 QTSP Qualificato ({qtsp_name})")
+        else:
+            self.val_qtsp.setText(f"⚪ Non accreditato eIDAS")
+
+        # Revocation
+        if rev_status == "GOOD":
+            self.val_revocation.setText("🟢 Non revocato")
+        elif rev_status == "REVOKED":
+            self.val_revocation.setText("🔴 REVOCATO / SOSPESO")
+        else:
+            self.val_revocation.setText("🟡 Non verificabile (Offline)")
+
+        # Timestamp CAdES-T
+        if ts_present and ts_valid:
+            self.val_timestamp.setText(f"🕒 {signer.get('timestamp_date')}\n(TSA: {signer.get('timestamp_tsa')})")
+        elif ts_present:
+            self.val_timestamp.setText("⚠️ Presente (Non valida)")
+        else:
+            self.val_timestamp.setText("⚪ Assente")
+
         self.val_validity.setText(f"{signer['valid_from']}\n➔ {signer['valid_to']}")
 
         self.val_inner_name.setText(res['suggested_filename'])

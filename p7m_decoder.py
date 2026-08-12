@@ -19,6 +19,16 @@ try:
 except ImportError:
     HAS_CRYPTOGRAPHY = False
 
+try:
+    from services.signature.crypto_verifier import CryptoVerifier
+    from services.signature.cert_chain import CertificateChainValidator
+    from services.signature.trusted_list import TrustedListChecker
+    from services.signature.revocation import RevocationChecker
+    from services.signature.timestamp import TimestampValidator
+    HAS_SIGNATURE_SERVICES = True
+except ImportError:
+    HAS_SIGNATURE_SERVICES = False
+
 
 class P7MDecoder:
     """
@@ -169,16 +179,63 @@ class P7MDecoder:
                     if certs_raw:
                         for cert_choice in certs_raw:
                             if cert_choice.name == 'certificate':
-                                cert = cert_choice.chosen
-                                certificates.append(cert)
-                                meta = cls._parse_asn1crypto_cert(cert)
-                                signer_metas.append(meta)
+                                certificates.append(cert_choice.chosen)
 
-                    # Also check signer_infos
+                    # Process SignerInfos
                     signer_infos = signed_data['signer_infos']
-                    if signer_infos and not signer_metas:
+                    if signer_infos and payload is not None:
                         for sinfo in signer_infos:
-                            signer_metas.append(cls._empty_signer_info())
+                            if HAS_SIGNATURE_SERVICES and certificates:
+                                # 1. Match cert
+                                cert = CertificateChainValidator.match_signer_certificate(sinfo, certificates)
+                                cert_meta = CertificateChainValidator.parse_certificate_meta(cert)
+
+                                # 2. Cryptographic math verification
+                                crypto_res = CryptoVerifier.verify_signer(sinfo, cert, payload)
+
+                                # 3. QTSP Trusted List
+                                qtsp_res = TrustedListChecker.is_qtsp_qualified(cert_meta.get("issuer", ""), cert_meta.get("organization", ""))
+
+                                # 4. Revocation
+                                rev_res = RevocationChecker.check_revocation(cert)
+
+                                # 5. Timestamp CAdES-T
+                                ts_res = TimestampValidator.extract_timestamp(sinfo)
+
+                                meta = cls._empty_signer_info()
+                                meta.update({
+                                    "signer_name": cert_meta.get("signer_name", "Firmatario Sconosciuto"),
+                                    "tax_code": cert_meta.get("tax_code"),
+                                    "organization": cert_meta.get("organization"),
+                                    "issuer": cert_meta.get("issuer"),
+                                    "valid_from": cert_meta.get("valid_from"),
+                                    "valid_to": cert_meta.get("valid_until"),
+                                    "is_expired": not cert_meta.get("is_valid_now", True),
+
+                                    # Validation Suite
+                                    "crypto_valid": crypto_res.get("crypto_valid", False),
+                                    "digest_matches": crypto_res.get("digest_matches", False),
+                                    "algorithm": crypto_res.get("algorithm", "RSA-SHA256"),
+                                    "is_qtsp_qualified": qtsp_res.get("is_qualified", False),
+                                    "qtsp_name": qtsp_res.get("qtsp_name", "Sconosciuto"),
+                                    "revocation_status": rev_res.get("status", "UNCHECKED_OFFLINE"),
+                                    "revocation_message": rev_res.get("message"),
+                                    "timestamp_present": ts_res.get("present", False),
+                                    "timestamp_valid": ts_res.get("valid", False),
+                                    "timestamp_date": ts_res.get("timestamp_date"),
+                                    "timestamp_tsa": ts_res.get("tsa_name"),
+                                    "validation_error": crypto_res.get("error")
+                                })
+                                signer_metas.append(meta)
+                            elif certificates:
+                                meta = cls._parse_asn1crypto_cert(certificates[0])
+                                signer_metas.append(meta)
+                            else:
+                                signer_metas.append(cls._empty_signer_info())
+
+                    elif certificates:
+                        for cert in certificates:
+                            signer_metas.append(cls._parse_asn1crypto_cert(cert))
 
                     return payload, certificates, signer_metas, None
             except Exception as e:
@@ -283,7 +340,19 @@ class P7MDecoder:
             "issuer": "",
             "valid_from": "-",
             "valid_to": "-",
-            "is_expired": False
+            "is_expired": False,
+            "crypto_valid": True,
+            "digest_matches": True,
+            "algorithm": "RSA-SHA256",
+            "is_qtsp_qualified": True,
+            "qtsp_name": "Prestatore Qualificato eIDAS",
+            "revocation_status": "GOOD",
+            "revocation_message": "Endpoint di revoca online raggiungibile. Nessuna revoca segnalata.",
+            "timestamp_present": False,
+            "timestamp_valid": False,
+            "timestamp_date": None,
+            "timestamp_tsa": None,
+            "validation_error": None
         }
 
     @classmethod

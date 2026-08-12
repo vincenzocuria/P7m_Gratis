@@ -13,6 +13,8 @@ def build():
         "--name=P7MViewer",
         "--icon=app_icon.ico",
         "--add-data=app_icon.png;.",
+        "--collect-all=cryptography",
+        "--collect-all=asn1crypto",
         "main.py"
     ]
     res = subprocess.run(cmd)

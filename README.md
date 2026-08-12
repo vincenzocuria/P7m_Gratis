@@ -6,14 +6,19 @@
 [![Author](https://img.shields.io/badge/Author-Vincenzo%20Curia%20(vcuria.app)-0055ff.svg)](https://vcuria.app)
 [![License](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE)
 
-**P7M Viewer PA** è un'applicazione desktop moderna, gratuita e ad altissime prestazioni per la visualizzazione immediata ed il controllo strutturale dei file firmati digitalmente (**`.p7m`** / **`.p7s`**).
+**P7M Viewer PA v2.0** è un'applicazione desktop moderna, gratuita e ad altissime prestazioni per la visualizzazione immediata, la validazione crittografica eIDAS ed il controllo dei file firmati digitalmente (**`.p7m`** / **`.p7s`**).
 
-Sviluppato da **[Vincenzo Curia](https://vcuria.app)**, offre un'interfaccia utente curata nei dettagli con il linguaggio **Material Design 3 Expressive**, consentendo a cittadini, professionisti e funzionari della Pubblica Amministrazione di estrarre e consultare in un solo clic il contenuto di documenti firmati CAdES / PKCS#7 (PDF, Fatture Elettroniche XML, immagini e documenti di testo).
+Sviluppato da **[Vincenzo Curia](https://vcuria.app)**, offre un'interfaccia utente curata nei dettagli con il linguaggio **Material Design 3 Expressive**, consentendo a cittadini, professionisti e funzionari della Pubblica Amministrazione di verificare ed estrarre in un solo clic il contenuto di documenti firmati CAdES / PKCS#7 (PDF, Fatture Elettroniche XML, immagini e documenti di testo).
 
 ---
 
-## ✨ Caratteristiche Principali
+## ✨ Caratteristiche Principali (v2.0.0 Major Update)
 
+- 🔐 **Motore Nativo di Validazione Crittografica (eIDAS & ETSI)**:
+  - **Verifica Matematica della Firma**: Calcolo ed accertamento dell'impronta SHA-256/SHA-512 del payload rispetto all'attributo `messageDigest` e verifica della firma asimmetrica RSA / ECDSA sui `signedAttributes`.
+  - **Accredito QTSP (eIDAS / AgID)**: Controllo dell'emittente del certificato rispetto ai Prestatori di Servizi Fiduciari Qualificati accreditati (InfoCert, Aruba, Namirial, Poste Italiane, Actalis, Intesa, ecc.).
+  - **Stato di Revoca (AIA / OCSP / CRL)**: Verifica online degli endpoint OCSP e CRL con gestione offline aggraziata.
+  - **Marca Temporale (CAdES-T / RFC 3161)**: Estrazione dei token di attestazione temporale e verifica della firma della TSA per la data e ora certa.
 - 📄 **Estrazione Istantanea Busta CAdES / PKCS#7**: Decodifica nativa in memoria dei file `.p7m` con recupero immediato del payload e visualizzazione dei metadati del firmatario (Nome, Codice Fiscale, Organizzazione, CA emittente, periodo di validità).
 - 🎨 **Material Design 3 Expressive UI**: Interfaccia reattiva ed elegante con supporto completo ai temi **Chiaro**, **Scuro** e **Automatico (di Sistema)**.
 - 📐 **Visualizzatore PDF Vettoriale Integrato**: Integrazione con QtPDF per anteprime di qualità nativa, zoom regolabile, adattamento larghezza e stampa diretta del documento.
@@ -59,14 +64,14 @@ Il progetto include gli script pronti all'uso per generare l'eseguibile standalo
    ```bash
    python build_exe.py
    ```
-   *L'eseguibile verrà generato nella cartella `dist/P7MViewer/`.*
+   *L'eseguibile verrà generato nella cartella `dist/P7MViewer.exe`.*
 
 2. **Creazione dell'Installer Windows (InnoSetup)**:
    Assicurati che **Inno Setup 6** sia installato e compila il file di setup:
    ```bash
    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
    ```
-   *L'installer `P7MViewer_Setup_v1.0.exe` verrà salvato nella cartella `dist/`.*
+   *L'installer `P7MViewer_Setup_v2.0.exe` verrà salvato nella cartella `dist/`.*
 
 ---
 
