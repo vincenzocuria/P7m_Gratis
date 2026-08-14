@@ -8,7 +8,7 @@ def build():
         sys.executable, "-m", "PyInstaller",
         "--noconfirm",
         "--clean",
-        "--onefile",
+        "--onedir",
         "--windowed",
         "--name=P7MViewer",
         "--icon=app_icon.ico",
@@ -19,8 +19,8 @@ def build():
     ]
     res = subprocess.run(cmd)
     if res.returncode == 0:
-        exe_path = os.path.abspath("dist/P7MViewer.exe")
-        print(f"\nBuild completato con successo!\nEseguibile generato in: {exe_path}")
+        exe_path = os.path.abspath("dist/P7MViewer/P7MViewer.exe")
+        print(f"\nBuild completato con successo!\nCartella applicazione generata in: {os.path.abspath('dist/P7MViewer')}\nEseguibile: {exe_path}")
     else:
         print("\nErrore durante la compilazione PyInstaller.")
 
