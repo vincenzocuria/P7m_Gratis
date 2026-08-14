@@ -16,7 +16,8 @@ from PySide6.QtWidgets import (
     QLabel, QPushButton, QFileDialog, QSplitter, QStackedWidget,
     QTextEdit, QTreeWidget, QTreeWidgetItem, QScrollArea, QMessageBox,
     QFrame, QToolBar, QStatusBar, QLineEdit, QGroupBox, QTabWidget,
-    QSizePolicy, QFormLayout, QGridLayout, QMenuBar, QMenu, QToolButton
+    QSizePolicy, QFormLayout, QGridLayout, QMenuBar, QMenu, QToolButton,
+    QProgressBar, QDialog
 )
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 
@@ -30,14 +31,14 @@ except ImportError:
 
 from p7m_decoder import P7MDecoder
 
-APP_VERSION = "2.0.1"
+APP_VERSION = "2.0.2"
 GITHUB_REPO = "vincenzocuria/P7m_Gratis"
 
 
 class UpdateCheckerThread(QThread):
-    update_found = Signal(str, str, str)    # version, download_url, release_notes
-    no_update_found = Signal(str)           # current_version
-    check_failed = Signal(str)              # error_message
+    update_found = Signal(str, str, str, str)    # version, setup_url, html_url, release_notes
+    no_update_found = Signal(str)                # current_version
+    check_failed = Signal(str)                   # error_message
 
     def __init__(self, current_version: str = APP_VERSION, parent=None):
         super().__init__(parent)
@@ -64,20 +65,29 @@ class UpdateCheckerThread(QThread):
                     html_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases")
                     notes = data.get("body", "")
 
+                    setup_url = ""
+                    for asset in data.get("assets", []):
+                        name = asset.get("name", "").lower()
+                        if name.endswith("setup.exe") or (name.startswith("p7mviewer") and name.endswith(".exe")):
+                            setup_url = asset.get("browser_download_url", "")
+                            break
+
+                    if not setup_url and tag_name:
+                        setup_url = f"https://github.com/{GITHUB_REPO}/releases/download/{tag_name}/P7MViewer_Setup.exe"
+
                     if self._is_newer(latest_ver, self.current_version):
-                        self.update_found.emit(tag_name, html_url, notes)
+                        self.update_found.emit(tag_name, setup_url, html_url, notes)
                     else:
                         self.no_update_found.emit(self.current_version)
                     return
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                # Se non esiste ancora alcuna release su GitHub, trattalo come nessun nuovo aggiornamento
                 self.no_update_found.emit(self.current_version)
                 return
             self.check_failed.emit(f"HTTP Error {e.code}")
             return
         except Exception:
-            # Check su /tags come fallback
+            # Fallback su /tags
             try:
                 tags_url = f"https://api.github.com/repos/{GITHUB_REPO}/tags"
                 req = urllib.request.Request(tags_url, headers=headers)
@@ -88,8 +98,9 @@ class UpdateCheckerThread(QThread):
                             tag_name = tags[0].get("name", "").strip()
                             latest_ver = tag_name.lstrip("v")
                             html_url = f"https://github.com/{GITHUB_REPO}/releases"
+                            setup_url = f"https://github.com/{GITHUB_REPO}/releases/download/{tag_name}/P7MViewer_Setup.exe"
                             if self._is_newer(latest_ver, self.current_version):
-                                self.update_found.emit(tag_name, html_url, "")
+                                self.update_found.emit(tag_name, setup_url, html_url, "")
                                 return
                             else:
                                 self.no_update_found.emit(self.current_version)
@@ -109,6 +120,150 @@ class UpdateCheckerThread(QThread):
             return [int(p) for p in parts] if parts else [0]
 
         return parse_version(latest_str) > parse_version(current_str)
+
+
+class UpdateDownloadThread(QThread):
+    progress = Signal(int, int)       # downloaded_bytes, total_bytes
+    download_finished = Signal(str)   # local_file_path
+    download_failed = Signal(str)     # error_message
+
+    def __init__(self, download_url: str, target_path: str, parent=None):
+        super().__init__(parent)
+        self.download_url = download_url
+        self.target_path = target_path
+        self._is_cancelled = False
+
+    def cancel(self):
+        self._is_cancelled = True
+
+    def run(self):
+        import urllib.request
+        headers = {"User-Agent": "P7M-Viewer-PA-Updater"}
+        try:
+            req = urllib.request.Request(self.download_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=30) as response:
+                total_size = int(response.headers.get('content-length', 0))
+                downloaded = 0
+                chunk_size = 64 * 1024
+
+                with open(self.target_path, 'wb') as f:
+                    while True:
+                        if self._is_cancelled:
+                            return
+                        chunk = response.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        self.progress.emit(downloaded, total_size)
+
+            if not self._is_cancelled:
+                self.download_finished.emit(self.target_path)
+        except Exception as e:
+            if not self._is_cancelled:
+                self.download_failed.emit(str(e))
+
+
+class UpdateProgressDialog(QDialog):
+    def __init__(self, version: str, download_url: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Aggiornamento Automatico — v{version}")
+        self.setFixedSize(500, 220)
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+
+        self.version = version
+        self.download_url = download_url
+        clean_ver = version.lstrip("v")
+        self.target_file = os.path.join(tempfile.gettempdir(), f"P7MViewer_Setup_v{clean_ver}.exe")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(14)
+
+        title_lbl = QLabel(f"<b style='font-size: 15px;'>Download dell'aggiornamento {version} in corso...</b>")
+        layout.addWidget(title_lbl)
+
+        self.status_lbl = QLabel("Connessione al server in corso...")
+        self.status_lbl.setStyleSheet("color: #64748b; font-size: 12px;")
+        layout.addWidget(self.status_lbl)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                text-align: center;
+                height: 26px;
+                font-weight: bold;
+            }
+            QProgressBar::chunk {
+                background-color: #0284c7;
+                border-radius: 5px;
+            }
+        """)
+        layout.addWidget(self.progress_bar)
+
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        self.btn_cancel = QPushButton("Annulla")
+        self.btn_cancel.clicked.connect(self._cancel)
+        btn_layout.addWidget(self.btn_cancel)
+        layout.addLayout(btn_layout)
+
+        self.downloader = UpdateDownloadThread(self.download_url, self.target_file, self)
+        self.downloader.progress.connect(self._on_progress)
+        self.downloader.download_finished.connect(self._on_finished)
+        self.downloader.download_failed.connect(self._on_failed)
+        self.downloader.start()
+
+    def _on_progress(self, downloaded: int, total: int):
+        if total > 0:
+            pct = int((downloaded / total) * 100)
+            self.progress_bar.setValue(pct)
+            mb_down = downloaded / (1024 * 1024)
+            mb_tot = total / (1024 * 1024)
+            self.status_lbl.setText(f"Scaricati {mb_down:.1f} MB di {mb_tot:.1f} MB ({pct}%)")
+        else:
+            mb_down = downloaded / (1024 * 1024)
+            self.status_lbl.setText(f"Scaricati {mb_down:.1f} MB...")
+
+    def _on_finished(self, filepath: str):
+        self.status_lbl.setText("✅ Download completato! Avvio dell'installazione...")
+        self.progress_bar.setValue(100)
+        self.btn_cancel.setEnabled(False)
+        QTimer.singleShot(800, lambda: self._launch_installer(filepath))
+
+    def _launch_installer(self, filepath: str):
+        import subprocess
+        try:
+            # Avvia l'installer scaricato in modalità separata
+            subprocess.Popen([filepath], shell=True)
+            # Chiude l'applicazione per permettere all'installer di aggiornare i file
+            QApplication.quit()
+        except Exception as e:
+            QMessageBox.critical(self, "Errore Avvio Aggiornamento", f"Impossibile eseguire l'installer:\n{e}")
+            self.reject()
+
+    def _on_failed(self, error: str):
+        QMessageBox.critical(
+            self,
+            "Errore Download",
+            f"Impossibile scaricare l'aggiornamento automatico:\n{error}\n\nVerifica la connessione ad internet."
+        )
+        self.reject()
+
+    def _cancel(self):
+        if self.downloader and self.downloader.isRunning():
+            self.downloader.cancel()
+            self.downloader.wait(1000)
+        self.reject()
+
+    def closeEvent(self, event):
+        self._cancel()
+        event.accept()
 
 
 class XMLSyntaxHighlighter(QSyntaxHighlighter):
@@ -1242,32 +1397,38 @@ class P7MViewerWindow(QMainWindow):
             self.lbl_status_msg.setText("🔍 Controllo aggiornamenti su GitHub...")
 
         self.update_checker = UpdateCheckerThread(APP_VERSION, self)
-        self.update_checker.update_found.connect(lambda ver, url, notes: self._on_update_found(ver, url, notes, manual))
+        self.update_checker.update_found.connect(
+            lambda ver, setup_url, html_url, notes: self._on_update_found(ver, setup_url, html_url, notes, manual)
+        )
         self.update_checker.no_update_found.connect(lambda ver: self._on_no_update_found(ver, manual))
         self.update_checker.check_failed.connect(lambda err: self._on_update_check_failed(err, manual))
         self.update_checker.start()
 
-    def _on_update_found(self, version: str, url: str, notes: str, manual: bool):
-        self.lbl_status_msg.setText(f"🚀 Nuova versione {version} disponibile su GitHub!")
+    def _on_update_found(self, version: str, setup_url: str, html_url: str, notes: str, manual: bool):
+        self.lbl_status_msg.setText(f"🚀 Nuova versione {version} disponibile!")
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle("🚀 Aggiornamento Disponibile")
         msg_box.setIcon(QMessageBox.Information)
 
-        body_text = f"<h3>È disponibile una nuova versione di P7M Viewer PA!</h3>"
+        body_text = f"<h3>È disponibile una nuova versione di P7M Viewer PA ({version})!</h3>"
         body_text += f"<p><b>Versione attuale:</b> v{APP_VERSION}<br><b>Nuova versione:</b> {version}</p>"
         if notes:
             clean_notes = notes[:400] + "..." if len(notes) > 400 else notes
-            body_text += f"<p><b>Note di rilascio:</b><br>{clean_notes}</p>"
-        body_text += "<p>Desideri aprire la pagina delle Release su GitHub per scaricare il nuovo installer?</p>"
+            body_text += f"<p><b>Novità dell'aggiornamento:</b><br>{clean_notes}</p>"
+        body_text += "<p>Desideri scaricare e installare automaticamente l'aggiornamento adesso?</p>"
 
         msg_box.setText(body_text)
-        btn_download = msg_box.addButton("🌐 Scarica Ora (GitHub)", QMessageBox.AcceptRole)
+        btn_auto = msg_box.addButton("⚡ Aggiorna Automaticamente Ora", QMessageBox.AcceptRole)
         btn_later = msg_box.addButton("Più Tardi", QMessageBox.RejectRole)
-        msg_box.setDefaultButton(btn_download)
+        msg_box.setDefaultButton(btn_auto)
 
         msg_box.exec()
-        if msg_box.clickedButton() == btn_download:
-            QDesktopServices.openUrl(QUrl(url))
+        if msg_box.clickedButton() == btn_auto:
+            if setup_url:
+                dlg = UpdateProgressDialog(version, setup_url, self)
+                dlg.exec()
+            else:
+                QDesktopServices.openUrl(QUrl(html_url))
 
     def _on_no_update_found(self, version: str, manual: bool):
         if manual:
