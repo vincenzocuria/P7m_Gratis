@@ -94,23 +94,35 @@ class CertificateChainValidator:
             meta["tax_code"] = cls._extract_tax_code(subject)
 
             # Validity dates
-            not_before = cert.validity['not_before'].native
-            not_after = cert.validity['not_after'].native
+            try:
+                not_before = cert.not_valid_before
+                not_after = cert.not_valid_after
+            except Exception:
+                try:
+                    val = cert['tbs_certificate']['validity']
+                    not_before = val['not_before'].native
+                    not_after = val['not_after'].native
+                except Exception:
+                    not_before = None
+                    not_after = None
             
             if isinstance(not_before, datetime):
-                meta["valid_from"] = not_before.strftime('%Y-%m-%d %H:%M:%S')
-            else:
+                meta["valid_from"] = not_before.strftime('%d/%m/%Y %H:%M:%S')
+            elif not_before:
                 meta["valid_from"] = str(not_before)
 
             if isinstance(not_after, datetime):
-                meta["valid_until"] = not_after.strftime('%Y-%m-%d %H:%M:%S')
-            else:
+                meta["valid_until"] = not_after.strftime('%d/%m/%Y %H:%M:%S')
+            elif not_after:
                 meta["valid_until"] = str(not_after)
 
             # Check if currently valid
-            now = datetime.now(timezone.utc) if isinstance(not_after, datetime) and not_after.tzinfo else datetime.now()
             if isinstance(not_before, datetime) and isinstance(not_after, datetime):
-                meta["is_valid_now"] = (not_before <= now <= not_after)
+                now = datetime.now(timezone.utc) if not_after.tzinfo is not None else datetime.now()
+                # Ensure comparable timezone awareness
+                nb = not_before if not_before.tzinfo is not None else not_before.replace(tzinfo=timezone.utc if not_after.tzinfo else None)
+                na = not_after if not_after.tzinfo is not None else not_after.replace(tzinfo=timezone.utc if not_before.tzinfo else None)
+                meta["is_valid_now"] = (nb <= now <= na)
             else:
                 meta["is_valid_now"] = True
 

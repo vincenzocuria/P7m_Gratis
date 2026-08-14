@@ -31,7 +31,7 @@ except ImportError:
 
 from p7m_decoder import P7MDecoder
 
-APP_VERSION = "2.0.2"
+APP_VERSION = "2.0.3"
 GITHUB_REPO = "vincenzocuria/P7m_Gratis"
 
 
@@ -366,11 +366,11 @@ class P7MViewerWindow(QMainWindow):
         
         if hasattr(self, 'btn_theme_quick'):
             if self.theme_mode == "light":
-                self.btn_theme_quick.setText("☀️ Chiaro")
+                self.btn_theme_quick.setText("☀️ Chiaro ▾")
             elif self.theme_mode == "dark":
-                self.btn_theme_quick.setText("🌙 Scuro")
+                self.btn_theme_quick.setText("🌙 Scuro ▾")
             else:
-                self.btn_theme_quick.setText("💻 Auto")
+                self.btn_theme_quick.setText("💻 Auto ▾")
 
     # --- RECENT FILES MANAGEMENT ---
     def get_recent_files(self) -> List[str]:
@@ -1149,7 +1149,12 @@ class P7MViewerWindow(QMainWindow):
         else:
             self.val_timestamp.setText("⚪ Assente")
 
-        self.val_validity.setText(f"{signer['valid_from']}\n➔ {signer['valid_to']}")
+        valid_from = signer.get('valid_from')
+        valid_to = signer.get('valid_to')
+        if valid_from and valid_to and valid_from not in ("-", "None") and valid_to not in ("-", "None"):
+            self.val_validity.setText(f"{valid_from}\n➔ {valid_to}")
+        else:
+            self.val_validity.setText("-")
 
         self.val_inner_name.setText(res['suggested_filename'])
         self.val_mime.setText(f"{res['ext'].upper()} ({res['mime_type']})")
@@ -1877,6 +1882,14 @@ class P7MViewerWindow(QMainWindow):
             }}
             #ThemeToolBtn:hover {{
                 background-color: {c['theme_btn_hover_bg']};
+            }}
+            #ThemeToolBtn::menu-indicator {{
+                image: none;
+                width: 0px;
+            }}
+            #ThemeToolBtn::menu-button {{
+                border: none;
+                width: 0px;
             }}
 
             #AuthorBadge {{

@@ -17,6 +17,9 @@ class TestValidationSuite(unittest.TestCase):
         self.assertTrue(signer["crypto_valid"], "Mathematical RSA signature should be valid")
         self.assertTrue(signer["digest_matches"], "Payload hash should match messageDigest attribute")
         self.assertTrue(signer["is_qtsp_qualified"], "QTSP qualification check should pass")
+        self.assertIsNotNone(signer["valid_from"], "Certificate valid_from should be extracted")
+        self.assertIsNotNone(signer["valid_to"], "Certificate valid_to should be extracted")
+        self.assertFalse(signer["is_expired"], "Sample certificate should be currently valid")
 
     def test_corrupted_payload_signature_failure(self):
         filepath = "samples/verbale_giunta.txt.p7m"
