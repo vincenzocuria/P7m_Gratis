@@ -15,7 +15,16 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.vcuria.p7m/files")
         channel!!.setMethodCallHandler { call, result ->
-            if (call.method == "initialFile") {
+            if (call.method == "verifyTrust") {
+                val leaf = call.argument<ByteArray>("leaf")
+                val certificates = call.argument<List<ByteArray>>("certificates") ?: emptyList()
+                val time = call.argument<Number>("time")?.toLong() ?: System.currentTimeMillis()
+                if (leaf == null || certificates.size > 100) result.error("CERT", "Certificati non validi", null)
+                else reader.execute {
+                    val answer = CertificateTrust.verify(leaf, certificates, time)
+                    runOnUiThread { result.success(answer) }
+                }
+            } else if (call.method == "initialFile") {
                 val uri = documentUri(intent)
                 if (uri == null) result.success(null) else read(uri) { data, error ->
                     if (error != null) result.error("READ", error, null) else result.success(data)
