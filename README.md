@@ -1,106 +1,54 @@
-# 🛡️ P7M Viewer PA
+# P7M Viewer PA 2.1.0
 
-[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![GUI](https://img.shields.io/badge/GUI-PySide6%20%2F%20Qt6-green.svg)](https://pypi.org/project/PySide6/)
-[![Design](https://img.shields.io/badge/Design-Material%203%20Expressive-purple.svg)](#)
-[![Author](https://img.shields.io/badge/Author-Vincenzo%20Curia%20(vcuria.app)-0055ff.svg)](https://vcuria.app)
-[![License](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE)
+Viewer Windows gratuito per estrarre e consultare documenti CAdES/PKCS#7, PDF, XML, immagini e testo. Sviluppato da Vincenzo Curia.
 
-**P7M Viewer PA v2.0** è un'applicazione desktop moderna, gratuita e ad altissime prestazioni per la visualizzazione immediata, la validazione crittografica eIDAS ed il controllo dei file firmati digitalmente (**`.p7m`** / **`.p7s`**).
+## Verifiche e significato dei risultati
 
-Sviluppato da **[Vincenzo Curia](https://vcuria.app)**, offre un'interfaccia utente curata nei dettagli con il linguaggio **Material Design 3 Expressive**, consentendo a cittadini, professionisti e funzionari della Pubblica Amministrazione di verificare ed estrarre in un solo clic il contenuto di documenti firmati CAdES / PKCS#7 (PDF, Fatture Elettroniche XML, immagini e documenti di testo).
+- **Integrità crittografica:** verifica firma CMS e digest del contenuto, attributi obbligatori e corrispondenza contentType. Supporta RSA PKCS#1 v1.5, RSA-PSS, ECDSA e DSA con digest SHA-1/256/384/512; gli algoritmi sconosciuti non hanno fallback SHA-256.
+- **Certificato del firmatario:** corrispondenza di emittente e seriale o subjectKeyIdentifier. Nessun ripiego sul primo certificato.
+- **Catena locale:** validazione PKIX tramite pyhanko-certvalidator e radici del sistema, con intermedi presenti nella busta. Non scarica intermedi AIA e non rappresenta un giudizio eIDAS. La revoca degli intermedi non è accertata.
+- **Revoca del certificato firmatario:** richieste OCSP reali o CRL complete e dirette. Verifica firma della risposta, autorizzazione del responder, identificativo del certificato e freschezza. Errori, assenza di nextUpdate, CRL parziali/indirette, responder delegati senza OCSP no-check e formati non supportati restano **non verificati**. La raggiungibilità HTTP non indica assenza di revoca. Gli endpoint devono essere pubblici HTTP(S), senza redirect, sulle porte 80/443.
+- **Marca RFC 3161:** verifica firma CMS del token, impronta della firma originale, EKU esclusivo TSA e catena alla data della marca. La revoca storica TSA non è disponibile: la validità complessiva e la prova di data certa restano **non accertate**, anche se firma e impronta sono corrette.
+- **Qualifica eIDAS:** sempre **non verificata** finché non è disponibile una lista fiduciaria autenticata con storico del servizio. Nomi come Aruba, InfoCert o Comune non costituiscono prova.
+- **PDF/PAdES:** rileva indizi di firma nel PDF, ma non valida le firme PAdES.
+- **Documenti non firmati o recuperati tramite scansione:** estraibili e consultabili, senza esiti positivi di verifica.
 
----
+Il riepilogo considera tutti i firmatari. Il pannello mostra il primo; il tooltip del nome riporta gli esiti di tutti. Un firmatario con firma errata o certificato revocato rende negativo il riepilogo. L'integrità matematica corretta non equivale a qualificazione o validità complessiva della firma.
 
-## ✨ Caratteristiche Principali (v2.0.0 Major Update)
+## Interfaccia
 
-- 🔐 **Motore Nativo di Validazione Crittografica (eIDAS & ETSI)**:
-  - **Verifica Matematica della Firma**: Calcolo ed accertamento dell'impronta SHA-256/SHA-512 del payload rispetto all'attributo `messageDigest` e verifica della firma asimmetrica RSA / ECDSA sui `signedAttributes`.
-  - **Accredito QTSP (eIDAS / AgID)**: Controllo dell'emittente del certificato rispetto ai Prestatori di Servizi Fiduciari Qualificati accreditati (InfoCert, Aruba, Namirial, Poste Italiane, Actalis, Intesa, ecc.).
-  - **Stato di Revoca (AIA / OCSP / CRL)**: Verifica online degli endpoint OCSP e CRL con gestione offline aggraziata.
-  - **Marca Temporale (CAdES-T / RFC 3161)**: Estrazione dei token di attestazione temporale e verifica della firma della TSA per la data e ora certa.
-- 📄 **Estrazione Istantanea Busta CAdES / PKCS#7**: Decodifica nativa in memoria dei file `.p7m` con recupero immediato del payload e visualizzazione dei metadati del firmatario (Nome, Codice Fiscale, Organizzazione, CA emittente, periodo di validità).
-- 🎨 **Material Design 3 Expressive UI**: Interfaccia reattiva ed elegante con supporto completo ai temi **Chiaro**, **Scuro** e **Automatico (di Sistema)**.
-- 📐 **Visualizzatore PDF Vettoriale Integrato**: Integrazione con QtPDF per anteprime di qualità nativa, zoom regolabile, adattamento larghezza e stampa diretta del documento.
-- 🌳 **Visualizzatore XML Formattato & Albero Strutturato**: Perfetto per le **Fatture Elettroniche PA (FPA12 / FPR12)** e determine. Include syntax highlighting colorato ed un albero esplorabile di tutti i tag ed attributi XML.
-- 🔄 **Controllo Automatico e Manuale degli Aggiornamenti**: Integrazione automatica tramite background thread con l'API GitHub Releases di [`vincenzocuria/P7m_Gratis`](https://github.com/vincenzocuria/P7m_Gratis), per notificare la presenza di nuove versioni ed installer.
-- 🕒 **Dashboard File Recenti**: Schermata di benvenuto interattiva con zona **Drag & Drop** e scorciatoie per riaprire rapidamente gli ultimi documenti consultati.
-- 🔗 **Associazione File Windows (.p7m)**: Funzione integrata a menu per registrare l'estensione nel registro di Windows ed aprire i file con un doppio clic da Esplora File.
-- 🖨️ **Stampa Documento Integrata**: Supporto alla stampa diretta per documenti PDF, XML, immagini e testo.
+Anteprima PDF QtPDF, XML formattato e ad albero, immagini e testo; esportazione, stampa, temi chiaro/scuro/automatico, file recenti e associazione Windows .p7m. Decodifica e rete avvengono in un worker: la finestra resta reattiva.
 
----
+Le firme detached .p7s prive di contenuto richiedono il documento originale e non vengono validate da questo viewer. Il recupero raw è un'estrazione di emergenza, non prova che i byte siano l'originale firmato.
 
-## 🚀 Guida all'Uso e Requisiti
+## Installazione da sorgenti
 
-### Requisiti
-- **Windows 10 / 11**
-- **Python 3.10+** (in caso di esecuzione da codice sorgente)
+Windows 10/11 x64, Python 3.12:
 
-### Esecuzione da Codice Sorgente
+```powershell
+python -m pip install -r requirements.txt
+python main.py
+```
 
-1. **Clona il repository**:
-   ```bash
-   git clone https://github.com/vincenzocuria/P7m_Gratis.git
-   cd P7m_Gratis
-   ```
+## Test e build
 
-2. **Installa le dipendenze**:
-   ```bash
-   pip install PySide6 asn1crypto pycryptodome cryptography
-   ```
+```powershell
+python -m unittest discover -v
+python -m pip install pyinstaller==6.22.2
+python build_exe.py
+& 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer.iss
+```
 
-3. **Avvia l'applicazione**:
-   ```bash
-   python main.py
-   ```
+L'applicazione è in `dist/P7MViewer/P7MViewer.exe`, il setup in `dist/P7MViewer_Setup.exe`. Il portable è uno ZIP dell'intera cartella `dist/P7MViewer`, non del solo exe. Non è necessario installare Python sul PC destinatario.
 
----
+## Aggiornamenti
 
-## 📦 Compilazione ed Installer Executable (.exe)
+Controllo tramite GitHub Releases, con download del solo asset `P7MViewer_Setup.exe`. Il SHA-256 fornito dall'API GitHub viene verificato prima dell'esecuzione. Asset senza digest e versioni prerelease/malformate non vengono installati. Il digest protegge da corruzione o sostituzione nel download; non sostituisce una firma Authenticode del publisher.
 
-Il progetto include gli script pronti all'uso per generare l'eseguibile standalone ed il pacchetto di installazione Windows:
+La 2.1.0 è una release correttiva: le versioni precedenti potevano mostrare esiti positivi senza prove sufficienti. Aggiornare le installazioni esistenti.
 
-1. **Generazione pacchetto PyInstaller**:
-   ```bash
-   python build_exe.py
-   ```
-   *L'eseguibile verrà generato nella cartella `dist/P7MViewer.exe`.*
+## Ambito
 
-2. **Creazione dell'Installer Windows (InnoSetup)**:
-   Assicurati che **Inno Setup 6** sia installato e compila il file di setup:
-   ```bash
-   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
-   ```
-   *L'installer `P7MViewer_Setup_v2.0.exe` verrà salvato nella cartella `dist/`.*
+Strumento informativo. I risultati indicano esattamente i controlli eseguiti e quelli non disponibili; non costituiscono una validazione completa eIDAS/CAdES/PAdES o una valutazione giuridica.
 
----
-
-## 🔄 Sistema di Aggiornamento Automatico
-
-P7M Viewer PA verifica automaticamente la presenza di nuove versioni all'avvio. Puoi anche effettuare la verifica manuale in qualsiasi momento dal menu:
-**`?` ➔ `🔄 Controlla Aggiornamenti...`**
-
-Qualora sia disponibile una nuova versione su GitHub, l'applicazione fornirà il link diretto per scaricare l'installer aggiornato.
-
----
-
-## ⚖️ Avviso di Non Validità Legale
-
-P7M Viewer PA estrae ed esamina la struttura sintattica del contenitore PKCS#7 / CAdES e ne mostra il contenuto originale ed i metadati del certificato.
-
-**Nota Legale**: Questo software è uno **strumento ad uso puramente informativo ed estrattivo**. NON possiede valore di giudizio legale formale ai sensi del CAD (Codice dell'Amministrazione Digitale), in quanto non interroga in tempo reale i servizi di verifica della revoca (CRL / OCSP) delle Autorità di Certificazione (CA) accreditate né le marche temporali per la validità con valore di prova legale. Per verifiche formali con valore legale si raccomanda l'uso di software accreditati AgID (es. ArubaSign, Dike, FirmaOK).
-
----
-
-## 👨‍💻 Crediti ed Autore
-
-Sviluppato con ❤️ da **Vincenzo Curia**.
-
-- 🌐 **Sito Ufficiale**: [vcuria.app](https://vcuria.app)
-- 🐙 **GitHub Repository**: [vincenzocuria/P7m_Gratis](https://github.com/vincenzocuria/P7m_Gratis)
-
----
-
-## 📄 Licenza
-
-Questo progetto è rilasciato sotto Licenza **MIT**. Consulta il file `LICENSE` per maggiori informazioni.
+Repository: https://github.com/vincenzocuria/P7m_Gratis

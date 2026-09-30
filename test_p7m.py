@@ -17,7 +17,7 @@ class TestP7MDecoder(unittest.TestCase):
         self.assertEqual(signer["tax_code"], "RSSMRA80A01H501Z")
         self.assertTrue(signer.get("crypto_valid", False))
         self.assertTrue(signer.get("digest_matches", False))
-        self.assertTrue(signer.get("is_qtsp_qualified", False))
+        self.assertIsNone(signer.get("is_qtsp_qualified"))
 
     def test_xml_extraction(self):
         filepath = "samples/fattura_FPA12.xml.p7m"

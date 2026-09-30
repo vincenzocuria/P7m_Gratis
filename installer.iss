@@ -1,8 +1,8 @@
 [Setup]
 AppId={{D82F91A2-4301-4F2A-A81E-2B6A56E2140A}
 AppName=P7M Viewer PA
-AppVersion=2.0.3
-AppPublisher=Antigravity PA
+AppVersion=2.1.0
+AppPublisher=Vincenzo Curia
 DefaultDirName={userpf}\P7M Viewer PA
 DefaultGroupName=P7M Viewer PA
 DisableProgramGroupPage=yes

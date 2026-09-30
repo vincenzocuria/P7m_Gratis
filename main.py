@@ -13,6 +13,10 @@ def main():
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
 
+    if len(sys.argv) == 3 and sys.argv[1] == '--self-test':
+        from self_test import run
+        sys.exit(run(app, sys.argv[2]))
+
     initial_file = None
     if len(sys.argv) > 1:
         candidate = sys.argv[1]

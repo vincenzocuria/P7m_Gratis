@@ -31,7 +31,7 @@ except ImportError:
 
 from p7m_decoder import P7MDecoder
 
-APP_VERSION = "2.0.3"
+APP_VERSION = "2.1.0"
 GITHUB_REPO = "vincenzocuria/P7m_Gratis"
 
 
@@ -68,12 +68,17 @@ class UpdateCheckerThread(QThread):
                     setup_url = ""
                     for asset in data.get("assets", []):
                         name = asset.get("name", "").lower()
-                        if name.endswith("setup.exe") or (name.startswith("p7mviewer") and name.endswith(".exe")):
-                            setup_url = asset.get("browser_download_url", "")
+                        if name == "p7mviewer_setup.exe":
+                            digest = asset.get("digest", "")
+                            asset_url = asset.get("browser_download_url", "")
+                            if not digest.startswith("sha256:") or len(digest) != 71:
+                                raise ValueError("Installer senza digest SHA-256 verificabile")
+                            if not asset_url.startswith(f"https://github.com/{GITHUB_REPO}/releases/download/"):
+                                raise ValueError("Origine installer non autorizzata")
+                            setup_url = asset_url + "#" + digest
                             break
-
-                    if not setup_url and tag_name:
-                        setup_url = f"https://github.com/{GITHUB_REPO}/releases/download/{tag_name}/P7MViewer_Setup.exe"
+                    if self._is_newer(latest_ver, self.current_version) and not setup_url:
+                        raise ValueError("Release priva di installer verificabile")
 
                     if self._is_newer(latest_ver, self.current_version):
                         self.update_found.emit(tag_name, setup_url, html_url, notes)
@@ -86,40 +91,19 @@ class UpdateCheckerThread(QThread):
                 return
             self.check_failed.emit(f"HTTP Error {e.code}")
             return
-        except Exception:
-            # Fallback su /tags
-            try:
-                tags_url = f"https://api.github.com/repos/{GITHUB_REPO}/tags"
-                req = urllib.request.Request(tags_url, headers=headers)
-                with urllib.request.urlopen(req, timeout=6) as response:
-                    if response.status == 200:
-                        tags = json.loads(response.read().decode('utf-8'))
-                        if tags and isinstance(tags, list):
-                            tag_name = tags[0].get("name", "").strip()
-                            latest_ver = tag_name.lstrip("v")
-                            html_url = f"https://github.com/{GITHUB_REPO}/releases"
-                            setup_url = f"https://github.com/{GITHUB_REPO}/releases/download/{tag_name}/P7MViewer_Setup.exe"
-                            if self._is_newer(latest_ver, self.current_version):
-                                self.update_found.emit(tag_name, setup_url, html_url, "")
-                                return
-                            else:
-                                self.no_update_found.emit(self.current_version)
-                                return
-            except Exception as ex:
-                self.check_failed.emit(str(ex))
-                return
-
-            self.no_update_found.emit(self.current_version)
+        except Exception as exc:
+            self.check_failed.emit(str(exc))
             return
 
     @staticmethod
     def _is_newer(latest_str: str, current_str: str) -> bool:
         import re
         def parse_version(v: str):
-            parts = re.findall(r'\d+', v)
-            return [int(p) for p in parts] if parts else [0]
-
+            if not re.fullmatch(r"v?\d+\.\d+\.\d+", v):
+                raise ValueError("Versione non stabile o malformata")
+            return tuple(int(p) for p in v.lstrip("v").split("."))
         return parse_version(latest_str) > parse_version(current_str)
+
 
 
 class UpdateDownloadThread(QThread):
@@ -129,7 +113,8 @@ class UpdateDownloadThread(QThread):
 
     def __init__(self, download_url: str, target_path: str, parent=None):
         super().__init__(parent)
-        self.download_url = download_url
+        self.download_url, sep, digest = download_url.partition("#sha256:")
+        self.expected_digest = digest if sep else ""
         self.target_path = target_path
         self._is_cancelled = False
 
@@ -140,6 +125,13 @@ class UpdateDownloadThread(QThread):
         import urllib.request
         headers = {"User-Agent": "P7M-Viewer-PA-Updater"}
         try:
+            import hashlib
+            import re
+            if not re.fullmatch(r"[0-9a-f]{64}", self.expected_digest):
+                raise ValueError("Digest SHA-256 installer mancante")
+            if not self.download_url.startswith(f"https://github.com/{GITHUB_REPO}/releases/download/"):
+                raise ValueError("Origine installer non autorizzata")
+            digest = hashlib.sha256()
             req = urllib.request.Request(self.download_url, headers=headers)
             with urllib.request.urlopen(req, timeout=30) as response:
                 total_size = int(response.headers.get('content-length', 0))
@@ -154,9 +146,14 @@ class UpdateDownloadThread(QThread):
                         if not chunk:
                             break
                         f.write(chunk)
+                        digest.update(chunk)
                         downloaded += len(chunk)
                         self.progress.emit(downloaded, total_size)
 
+            if digest.hexdigest() != self.expected_digest:
+                raise ValueError("Digest SHA-256 installer non corrispondente")
+            if total_size and downloaded != total_size:
+                raise ValueError("Download installer incompleto")
             if not self._is_cancelled:
                 self.download_finished.emit(self.target_path)
         except Exception as e:
@@ -174,7 +171,8 @@ class UpdateProgressDialog(QDialog):
         self.version = version
         self.download_url = download_url
         clean_ver = version.lstrip("v")
-        self.target_file = os.path.join(tempfile.gettempdir(), f"P7MViewer_Setup_v{clean_ver}.exe")
+        self._download_dir = tempfile.TemporaryDirectory(prefix="P7MViewer-update-")
+        self.target_file = os.path.join(self._download_dir.name, "P7MViewer_Setup.exe")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
@@ -240,7 +238,7 @@ class UpdateProgressDialog(QDialog):
         import subprocess
         try:
             # Avvia l'installer scaricato in modalità separata
-            subprocess.Popen([filepath], shell=True)
+            subprocess.Popen([filepath], shell=False)
             # Chiude l'applicazione per permettere all'installer di aggiornare i file
             QApplication.quit()
         except Exception as e:
@@ -255,15 +253,26 @@ class UpdateProgressDialog(QDialog):
         )
         self.reject()
 
+    def done(self, result):
+        if self.downloader and self.downloader.isRunning():
+            QTimer.singleShot(100, lambda: self.done(result))
+            return
+        super().done(result)
+
     def _cancel(self):
         if self.downloader and self.downloader.isRunning():
             self.downloader.cancel()
-            self.downloader.wait(1000)
+            self.status_lbl.setText("Annullamento in corso...")
+            self.btn_cancel.setEnabled(False)
         self.reject()
 
     def closeEvent(self, event):
-        self._cancel()
-        event.accept()
+        if self.downloader and self.downloader.isRunning():
+            event.ignore()
+            self._cancel()
+        else:
+            event.accept()
+
 
 
 class XMLSyntaxHighlighter(QSyntaxHighlighter):
@@ -304,6 +313,21 @@ class XMLSyntaxHighlighter(QSyntaxHighlighter):
             self.setFormat(match.start(), match.end() - match.start(), self.comment_format)
 
 
+class DecodeThread(QThread):
+    decoded = Signal(str, object)
+
+    def __init__(self, filepath, parent=None):
+        super().__init__(parent)
+        self.filepath = filepath
+
+    def run(self):
+        try:
+            result = P7MDecoder.decode_file(self.filepath)
+        except Exception as exc:
+            result = {"success": False, "error": str(exc)}
+        self.decoded.emit(self.filepath, result)
+
+
 class P7MViewerWindow(QMainWindow):
     def __init__(self, initial_file: Optional[str] = None):
         super().__init__()
@@ -321,6 +345,8 @@ class P7MViewerWindow(QMainWindow):
         self.current_data: Optional[Dict[str, Any]] = None
         self.temp_pdf_file: Optional[str] = None
         self.update_checker: Optional[UpdateCheckerThread] = None
+        self._load_threads = []
+        self._latest_load = None
 
         self._create_menu_bar()
         self._init_ui()
@@ -676,7 +702,7 @@ class P7MViewerWindow(QMainWindow):
         self.val_qtsp = QLabel("-")
         self.val_qtsp.setObjectName("FieldValue")
         self.val_qtsp.setWordWrap(True)
-        add_info_row("Accredito eIDAS:", self.val_qtsp)
+        add_info_row("Qualifica eIDAS:", self.val_qtsp)
 
         self.val_revocation = QLabel("-")
         self.val_revocation.setObjectName("FieldValue")
@@ -751,7 +777,7 @@ class P7MViewerWindow(QMainWindow):
         disc_frame.setObjectName("LegalDisclaimer")
         disc_layout = QVBoxLayout(disc_frame)
         disc_layout.setContentsMargins(10, 8, 10, 8)
-        lbl_disc = QLabel("⚖️ <b>A scopo informativo:</b> Software di consultazione rapida del contenitore P7M. Non effettua controllo liste di revoca CRL/OCSP.")
+        lbl_disc = QLabel("⚖️ <b>A scopo informativo:</b> Software di consultazione rapida del contenitore P7M. Gli esiti non verificati non equivalgono a firme valide. Qualifica eIDAS non accertata.")
         lbl_disc.setWordWrap(True)
         lbl_disc.setObjectName("DisclaimerText")
         disc_layout.addWidget(lbl_disc)
@@ -1076,7 +1102,23 @@ class P7MViewerWindow(QMainWindow):
             return
 
         self.lbl_status_msg.setText(f"Caricamento {os.path.basename(filepath)}...")
-        res = P7MDecoder.decode_file(filepath)
+        if any(w.isRunning() for w in self._load_threads):
+            self.lbl_status_msg.setText("Apertura già in corso; attendere il completamento.")
+            return
+        self._latest_load = filepath
+        self.current_data = None
+        self.btn_export.setEnabled(False)
+        self.act_export.setEnabled(False)
+        worker = DecodeThread(filepath, self)
+        self._load_threads.append(worker)
+        worker.decoded.connect(self._display_file)
+        worker.finished.connect(lambda w=worker: self._load_threads.remove(w))
+        worker.finished.connect(worker.deleteLater)
+        worker.start()
+
+    def _display_file(self, filepath, res):
+        if filepath != self._latest_load:
+            return
 
         if not res["success"]:
             QMessageBox.critical(self, "Errore Decodifica P7M", f"Impossibile aprire il file:\n{res.get('error')}")
@@ -1091,47 +1133,55 @@ class P7MViewerWindow(QMainWindow):
 
         signer = res["signer_info"]
 
-        crypto_valid = signer.get("crypto_valid", True)
-        digest_matches = signer.get("digest_matches", True)
-        is_expired = signer.get("is_expired", False)
-        is_qtsp = signer.get("is_qtsp_qualified", True)
-        rev_status = signer.get("revocation_status", "GOOD")
+        signers = res.get("all_signers") or [signer]
+        crypto_valid = signer.get("crypto_valid")
+        digest_matches = signer.get("digest_matches")
+        is_qtsp = signer.get("is_qtsp_qualified")
+        rev_status = signer.get("revocation_status", "UNKNOWN")
         ts_present = signer.get("timestamp_present", False)
-        ts_valid = signer.get("timestamp_valid", False)
-
-        if not crypto_valid or not digest_matches:
+        ts_valid = signer.get("timestamp_valid")
+        failed = any(x.get("crypto_valid") is False or x.get("digest_matches") is False for x in signers)
+        revoked = any(x.get("revocation_status") == "REVOKED" for x in signers)
+        checked = all(x.get("crypto_valid") is True and x.get("digest_matches") is True for x in signers)
+        expired = any(x.get("is_expired") for x in signers)
+        if failed or revoked:
             self.status_badge.setObjectName("StatusBadgeError")
-            self.lbl_badge_text.setText("❌ FIRMA O IMPRONTA NON VALIDA")
-            self.lbl_badge_sub.setText("Integrità crittografica compromessa o firma corrotta")
-        elif is_expired:
+            self.lbl_badge_text.setText("❌ FIRMA NON VALIDA" if failed else "❌ CERTIFICATO REVOCATO")
+            self.lbl_badge_sub.setText("Almeno un firmatario non supera i controlli")
+        elif not checked:
             self.status_badge.setObjectName("StatusBadgeWarning")
-            self.lbl_badge_text.setText("⚠️ CERTIFICATO SCADUTO")
-            self.lbl_badge_sub.setText("Certificato non più valido alla data odierna")
+            self.lbl_badge_text.setText("⚪ FIRMA NON VERIFICATA")
+            self.lbl_badge_sub.setText("Contenuto consultabile; verifica della firma non disponibile")
         else:
-            self.status_badge.setObjectName("StatusBadgeSuccess")
-            self.lbl_badge_text.setText("🟢 DOCUMENTO INTEGRO E VERIFICATO")
-            self.lbl_badge_sub.setText("Firma crittografica verificata con esito positivo")
+            self.status_badge.setObjectName("StatusBadgeWarning")
+            self.lbl_badge_text.setText("✓ INTEGRITÀ CRITTOGRAFICA CORRETTA")
+            suffix = " • certificato scaduto o non ancora valido" if expired else ""
+            self.lbl_badge_sub.setText(f"{len(signers)} firmatario/i • Qualifica eIDAS non verificata" + suffix)
 
         self.status_badge.setStyle(self.status_badge.style())
 
         self.val_signer.setText(signer['signer_name'])
+        self.val_signer.setToolTip('\n'.join(f"{x.get('signer_name')}: integrità={x.get('crypto_valid')}, impronta={x.get('digest_matches')}, revoca={x.get('revocation_status')}" for x in signers))
         self.val_taxcode.setText(signer['tax_code'] or "Non specificato")
         self.val_org.setText(signer['organization'] or "Non specificato")
         self.val_issuer.setText(signer['issuer'] or "CA Sconosciuta")
 
         # Cryptographic verification details
         algo = signer.get("algorithm", "RSA-SHA256")
-        if crypto_valid and digest_matches:
+        if crypto_valid is True and digest_matches is True:
             self.val_crypto.setText(f"🟢 {algo} (Math OK)")
-        else:
+        elif crypto_valid is False or digest_matches is False:
             self.val_crypto.setText(f"❌ {algo} (Fallita)")
+        else:
+            self.val_crypto.setText("⚪ Non verificata")
 
         # QTSP Accredited status
         qtsp_name = signer.get("qtsp_name", "Qualificato")
-        if is_qtsp:
+        if is_qtsp is True:
             self.val_qtsp.setText(f"🟢 QTSP Qualificato ({qtsp_name})")
         else:
-            self.val_qtsp.setText(f"⚪ Non accreditato eIDAS")
+            self.val_qtsp.setText("⚪ Qualifica eIDAS non verificata")
+        self.val_qtsp.setToolTip("Catena locale: " + ("verificata" if signer.get("chain_trusted") else str(signer.get("chain_error", "non verificata"))))
 
         # Revocation
         if rev_status == "GOOD":
@@ -1139,15 +1189,17 @@ class P7MViewerWindow(QMainWindow):
         elif rev_status == "REVOKED":
             self.val_revocation.setText("🔴 REVOCATO / SOSPESO")
         else:
-            self.val_revocation.setText("🟡 Non verificabile (Offline)")
+            self.val_revocation.setText("🟡 Revoca non verificata")
+        self.val_revocation.setToolTip(str(signer.get("revocation_message", "")))
 
         # Timestamp CAdES-T
         if ts_present and ts_valid:
             self.val_timestamp.setText(f"🕒 {signer.get('timestamp_date')}\n(TSA: {signer.get('timestamp_tsa')})")
         elif ts_present:
-            self.val_timestamp.setText("⚠️ Presente (Non valida)")
+            self.val_timestamp.setText("⚠️ Presente (Non valida)" if ts_valid is False else "🟡 Presente (Validità non accertata)")
         else:
             self.val_timestamp.setText("⚪ Assente")
+        self.val_timestamp.setToolTip(str(signer.get("timestamp_message", "")))
 
         valid_from = signer.get('valid_from')
         valid_to = signer.get('valid_to')
@@ -1175,7 +1227,7 @@ class P7MViewerWindow(QMainWindow):
         else:
             self._render_binary(res)
 
-        self.lbl_status_msg.setText(f"Documento aperto: {res['suggested_filename']}")
+        self.lbl_status_msg.setText((res.get("error") + " • " if res.get("error") else "") + f"Documento aperto: {res['suggested_filename']} • Dettagli: primo firmatario su {len(signers)}")
 
     # --- RENDERERS ---
     def _render_pdf(self, payload: bytes):
@@ -1355,8 +1407,8 @@ class P7MViewerWindow(QMainWindow):
             return
 
         fd, temp_path = tempfile.mkstemp(suffix=self.current_data["ext"])
-        os.write(fd, self.current_data["payload"])
-        os.close(fd)
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(self.current_data["payload"])
 
         try:
             os.startfile(temp_path)
@@ -1475,15 +1527,17 @@ class P7MViewerWindow(QMainWindow):
         QMessageBox.about(self, "Informazioni su P7M Viewer PA", msg)
 
     def show_legal_disclaimer(self):
-        msg = (
-            "<h3>⚖️ Avviso di Non Validità Legale</h3>"
-            "<p>P7M Viewer PA estrae ed esamina la struttura sintattica del contenitore PKCS#7 / CAdES e ne mostra il contenuto originale ed i metadati del certificato.</p>"
-            "<p>Questo software <b>NON possiede valore di giudizio legale formale</b> ai sensi del CAD (Codice dell'Amministrazione Digitale), in quanto non interroga in tempo reale i servizi di verifica della revoca (CRL / OCSP) delle Autorità di Certificazione (CA) accreditate né le marche temporali per la validità con valore di prova legale.</p>"
-            "<p>Per le verifiche con valore legale formale si raccomanda l'uso dei software accreditati (ArubaSign, Dike, FirmaOK, ecc.).</p>"
-        )
-        QMessageBox.warning(self, "Avviso di Non Validità Legale", msg)
+        QMessageBox.information(self, "Ambito delle verifiche",
+            "Il viewer distingue estrazione, integrità crittografica, catena locale e revoca. "
+            "La qualifica eIDAS e la revoca storica delle TSA restano non verificate. "
+            "Il controllo PAdES rileva la presenza della firma ma non la valida. "
+            "Un risultato sconosciuto non equivale a una firma valida.")
 
     def closeEvent(self, event):
+        if any(w.isRunning() for w in self._load_threads) or (self.update_checker and self.update_checker.isRunning()):
+            event.ignore()
+            QTimer.singleShot(200, self.close)
+            return
         if self.temp_pdf_file and os.path.exists(self.temp_pdf_file):
             try:
                 os.remove(self.temp_pdf_file)

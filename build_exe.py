@@ -15,6 +15,8 @@ def build():
         "--add-data=app_icon.png;.",
         "--collect-all=cryptography",
         "--collect-all=asn1crypto",
+        "--collect-all=pyhanko_certvalidator",
+        "--collect-all=oscrypto",
         "main.py"
     ]
     res = subprocess.run(cmd)
@@ -23,6 +25,7 @@ def build():
         print(f"\nBuild completato con successo!\nCartella applicazione generata in: {os.path.abspath('dist/P7MViewer')}\nEseguibile: {exe_path}")
     else:
         print("\nErrore durante la compilazione PyInstaller.")
+        sys.exit(res.returncode)
 
 if __name__ == "__main__":
     build()
