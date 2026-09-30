@@ -41,7 +41,7 @@ class CertificateChainValidator:
                 cert_issuer = cert.issuer.native
                 cert_serial = cert.serial_number
 
-                if cert_serial == target_serial:
+                if cert_serial == target_serial and cert_issuer == target_issuer:
                     # Serial number match
                     return cert
 
@@ -56,7 +56,7 @@ class CertificateChainValidator:
                     pass
 
         # Fallback: return first certificate if list has only one
-        return cert_list[0] if len(cert_list) == 1 else (cert_list[0] if cert_list else None)
+        return None
 
     @classmethod
     def parse_certificate_meta(cls, cert: x509.Certificate) -> Dict[str, Any]:
@@ -124,7 +124,7 @@ class CertificateChainValidator:
                 na = not_after if not_after.tzinfo is not None else not_after.replace(tzinfo=timezone.utc if not_before.tzinfo else None)
                 meta["is_valid_now"] = (nb <= now <= na)
             else:
-                meta["is_valid_now"] = True
+                meta["is_valid_now"] = False
 
             # Key usage
             try:

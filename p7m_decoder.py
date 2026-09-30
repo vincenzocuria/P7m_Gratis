@@ -25,6 +25,7 @@ try:
     from services.signature.trusted_list import TrustedListChecker
     from services.signature.revocation import RevocationChecker
     from services.signature.timestamp import TimestampValidator
+    from services.signature.trust import validate_path, find_issuer, system_roots
     HAS_SIGNATURE_SERVICES = True
 except ImportError:
     HAS_SIGNATURE_SERVICES = False
@@ -59,8 +60,11 @@ class P7MDecoder:
         """
         if isinstance(filepath_or_bytes, str):
             original_filename = os.path.basename(filepath_or_bytes)
-            with open(filepath_or_bytes, 'rb') as f:
-                data = f.read()
+            try:
+                with open(filepath_or_bytes, 'rb') as f:
+                    data = f.read()
+            except OSError as exc:
+                return {'success': False, 'error': str(exc), 'original_filename': original_filename}
         else:
             original_filename = "document.p7m"
             data = filepath_or_bytes
@@ -71,7 +75,7 @@ class P7MDecoder:
         # Try extracting payload & certificates
         payload, certificates, signer_metas, error = cls._extract_pkcs7(data_clean)
 
-        if payload is None:
+        if payload is None and not data_clean.startswith(b"%PDF-"):
             # Fallback attempt: scan binary data for known magic headers (%PDF-, <?xml, etc.)
             payload = cls._fallback_extract_raw(data_clean)
             if payload:
@@ -191,13 +195,15 @@ class P7MDecoder:
                                 cert_meta = CertificateChainValidator.parse_certificate_meta(cert)
 
                                 # 2. Cryptographic math verification
-                                crypto_res = CryptoVerifier.verify_signer(sinfo, cert, payload)
+                                crypto_res = CryptoVerifier.verify_signer(sinfo, cert, payload, expected_content_type=encap_info["content_type"].native)
 
                                 # 3. QTSP Trusted List
                                 qtsp_res = TrustedListChecker.is_qtsp_qualified(cert_meta.get("issuer", ""), cert_meta.get("organization", ""))
 
                                 # 4. Revocation
-                                rev_res = RevocationChecker.check_revocation(cert)
+                                trust_res = validate_path(cert, certificates)
+                                issuer = find_issuer(cert, certificates + list(system_roots()))
+                                rev_res = RevocationChecker.check_revocation(cert, issuer=issuer)
 
                                 # 5. Timestamp CAdES-T
                                 ts_res = TimestampValidator.extract_timestamp(sinfo)
@@ -212,6 +218,9 @@ class P7MDecoder:
                                     "valid_to": cert_meta.get("valid_until"),
                                     "is_expired": not cert_meta.get("is_valid_now", True),
 
+                                    "chain_trusted": trust_res["trusted"],
+                                    "chain_error": trust_res["error"],
+                                    "timestamp_message": ts_res.get("message"),
                                     # Validation Suite
                                     "crypto_valid": crypto_res.get("crypto_valid", False),
                                     "digest_matches": crypto_res.get("digest_matches", False),
@@ -341,13 +350,15 @@ class P7MDecoder:
             "valid_from": "-",
             "valid_to": "-",
             "is_expired": False,
-            "crypto_valid": True,
-            "digest_matches": True,
-            "algorithm": "RSA-SHA256",
-            "is_qtsp_qualified": True,
-            "qtsp_name": "Prestatore Qualificato eIDAS",
-            "revocation_status": "GOOD",
-            "revocation_message": "Endpoint di revoca online raggiungibile. Nessuna revoca segnalata.",
+            "crypto_valid": None,
+            "digest_matches": None,
+            "algorithm": "Non verificato",
+            "is_qtsp_qualified": None,
+            "qtsp_name": "Non verificato",
+            "revocation_status": "UNKNOWN",
+            "revocation_message": "Revoca non verificata",
+            "chain_trusted": None,
+            "chain_error": "Catena non verificata",
             "timestamp_present": False,
             "timestamp_valid": False,
             "timestamp_date": None,

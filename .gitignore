@@ -4,8 +4,7 @@ __pycache__/
 
 # Build / PyInstaller / InnoSetup outputs
 build/
-dist/*
-!dist/*.exe
+dist/
 
 *.spec
 *.iss.bak

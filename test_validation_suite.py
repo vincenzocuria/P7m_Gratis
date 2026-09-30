@@ -16,7 +16,7 @@ class TestValidationSuite(unittest.TestCase):
         signer = res["signer_info"]
         self.assertTrue(signer["crypto_valid"], "Mathematical RSA signature should be valid")
         self.assertTrue(signer["digest_matches"], "Payload hash should match messageDigest attribute")
-        self.assertTrue(signer["is_qtsp_qualified"], "QTSP qualification check should pass")
+        self.assertIsNone(signer["is_qtsp_qualified"], "Names cannot establish qualification")
         self.assertIsNotNone(signer["valid_from"], "Certificate valid_from should be extracted")
         self.assertIsNotNone(signer["valid_to"], "Certificate valid_to should be extracted")
         self.assertFalse(signer["is_expired"], "Sample certificate should be currently valid")
@@ -44,17 +44,14 @@ class TestValidationSuite(unittest.TestCase):
         crypto_res = CryptoVerifier.verify_signer(sinfo, cert, bytes(corrupted_payload))
         self.assertFalse(crypto_res["digest_matches"], "Payload hash should NOT match messageDigest attribute when corrupted")
 
-    def test_qtsp_checker_known_providers(self):
-        self.assertTrue(TrustedListChecker.is_qtsp_qualified("InfoCert Qualified Electronic Signature CA")["is_qualified"])
-        self.assertTrue(TrustedListChecker.is_qtsp_qualified("ArubaPEC S.p.A.")["is_qualified"])
-        self.assertTrue(TrustedListChecker.is_qtsp_qualified("Namirial CA")["is_qualified"])
-        self.assertTrue(TrustedListChecker.is_qtsp_qualified("Poste Italiane EU CA")["is_qualified"])
-        self.assertFalse(TrustedListChecker.is_qtsp_qualified("Untrusted Self-Signed Test CA")["is_qualified"])
+    def test_qtsp_names_are_not_evidence(self):
+        for name in ("InfoCert", "ArubaPEC", "Namirial", "CA Falsa Comune Test", "Qualified eIDAS", "Untrusted"):
+            self.assertIsNone(TrustedListChecker.is_qtsp_qualified(name)["is_qualified"])
 
     def test_revocation_fallback_strategy(self):
         # Graceful offline fallback test
         res = RevocationChecker.check_revocation(None)
-        self.assertEqual(res["status"], "UNCHECKED_OFFLINE")
+        self.assertEqual(res["status"], "UNKNOWN")
 
 
 if __name__ == "__main__":
