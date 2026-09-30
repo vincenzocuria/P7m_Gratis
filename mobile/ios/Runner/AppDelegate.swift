@@ -6,6 +6,7 @@ import Security
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var files: FlutterMethodChannel?
   private var pendingFile: [String: Any]?
+  private var pendingError: String?
   private var ready = false
   override func application(
     _ application: UIApplication,
@@ -23,6 +24,10 @@ import Security
         self.ready = true
         result(self.pendingFile)
         self.pendingFile = nil
+        if let error = self.pendingError {
+          self.pendingError = nil
+          self.files?.invokeMethod("fileError", arguments: error)
+        }
       } else if call.method == "verifyTrust", let args = call.arguments as? [String: Any],
                 let leaf = args["leaf"] as? FlutterStandardTypedData,
                 let embedded = args["certificates"] as? [FlutterStandardTypedData] {
@@ -56,9 +61,14 @@ import Security
         DispatchQueue.main.async {
           if self.ready { self.files?.invokeMethod("openFile", arguments: document) }
           else { self.pendingFile = document }
+          self.pendingError = nil
         }
       } catch {
-        DispatchQueue.main.async { self.files?.invokeMethod("fileError", arguments: "Impossibile leggere il documento. Limite: 50 MB.") }
+        DispatchQueue.main.async {
+          let error = "Impossibile leggere il documento. Limite: 50 MB."
+          if self.ready { self.files?.invokeMethod("fileError", arguments: error) }
+          else { self.pendingFile = nil; self.pendingError = error }
+        }
       }
     }
   }

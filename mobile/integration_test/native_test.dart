@@ -51,7 +51,20 @@ void main() {
     await tester.tap(find.text('Documento'));
     await tester.pumpAndSettle();
     expect(find.byType(PdfViewer), findsOneWidget);
-    await tester.pump(const Duration(seconds: 2));
+    await tester.runAsync(() async {
+      final pdf = await PdfDocument.openData(state.doc.bytes);
+      expect(pdf.pages.length, 1);
+      final rendered = await pdf.pages.first.render();
+      expect(
+        rendered,
+        isNotNull,
+        reason: 'Il motore nativo deve renderizzare la pagina',
+      );
+      rendered?.dispose();
+      await pdf.dispose();
+      await Future<void>.delayed(const Duration(seconds: 3));
+    });
+    await tester.pumpAndSettle();
     await binding.takeScreenshot('pdf');
   });
 }

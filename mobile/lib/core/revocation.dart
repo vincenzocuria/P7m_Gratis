@@ -421,7 +421,7 @@ Future<Uint8List> fetchRevocation(
   final timer = Timer(remaining, () => client.close(force: true));
   client.findProxy = (_) => 'DIRECT';
   client.connectionFactory = (url, proxyHost, proxyPort) =>
-      Socket.startConnect(addresses.first, uri.port);
+      connectPinned(url, addresses.first);
   try {
     final request = await client
         .openUrl(requestBody == null ? 'GET' : 'POST', uri)
@@ -436,7 +436,7 @@ Future<Uint8List> fetchRevocation(
     if (response.statusCode != 200) {
       throw const HttpException('Endpoint di revoca non disponibile');
     }
-    final builder = BytesBuilder(copy: false);
+    final builder = BytesBuilder();
     await for (final part in response.timeout(const Duration(seconds: 5))) {
       if (builder.length + part.length > 16 * 1024 * 1024) {
         throw const FormatException('Risposta di revoca troppo grande');
@@ -448,6 +448,37 @@ Future<Uint8List> fetchRevocation(
     timer.cancel();
     client.close(force: true);
   }
+}
+
+// A custom HttpClient factory must perform TLS itself. Keep the validated IP
+// pinned while authenticating the original hostname and sending its SNI.
+Future<ConnectionTask<Socket>> connectPinned(
+  Uri uri,
+  InternetAddress address, {
+  SecurityContext? context,
+}) async {
+  final task = await Socket.startConnect(address, uri.port);
+  Socket? connected;
+  final socket = task.socket.then((plain) async {
+    connected = plain;
+    if (uri.scheme != 'https') return plain;
+    try {
+      final secure = await SecureSocket.secure(
+        plain,
+        host: uri.host,
+        context: context,
+      );
+      connected = secure;
+      return secure;
+    } catch (_) {
+      plain.destroy();
+      rethrow;
+    }
+  });
+  return ConnectionTask.fromSocket(socket, () {
+    task.cancel();
+    connected?.destroy();
+  });
 }
 
 RevocationStatus validateRevocationResponse(

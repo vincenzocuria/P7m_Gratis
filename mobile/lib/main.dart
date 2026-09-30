@@ -206,7 +206,7 @@ class _HomeState extends State<Home> {
       if ((f.lengthSync() ?? 0) > 50 * 1024 * 1024) {
         throw const FormatException('Limite di 50 MB superato');
       }
-      final builder = BytesBuilder(copy: false);
+      final builder = BytesBuilder();
       await for (final chunk in f.readAsByteStream().timeout(
         const Duration(seconds: 30),
       )) {
