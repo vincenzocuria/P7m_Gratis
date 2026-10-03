@@ -516,7 +516,8 @@ class _HomeState extends State<Home> {
   Widget preview(P7mDocument d) {
     if (d.bytes.length >= 5 &&
         ascii.decode(d.bytes.sublist(0, 5), allowInvalid: true) == '%PDF-') {
-      return PdfViewer.data(d.bytes, sourceName: d.name);
+      // Keep each document's asynchronous layout separate while switching files.
+      return PdfViewer.data(d.bytes, key: ObjectKey(d), sourceName: d.name);
     }
     final ext = d.name.toLowerCase().split('.').last;
     if (['png', 'jpg', 'jpeg', 'gif', 'webp'].contains(ext)) {
