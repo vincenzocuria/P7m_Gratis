@@ -380,70 +380,67 @@ class _HomeState extends State<Home> {
   void showInformation() {
     showDialog<void>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          scrollable: true,
-          title: const Text('P7M Gratis'),
-          content: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Sviluppata da Vincenzo Curia',
-                style: TextStyle(fontWeight: FontWeight.bold),
+      builder: (dialogContext) => AlertDialog(
+        scrollable: true,
+        title: const Text('P7M Gratis'),
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Sviluppata da Vincenzo Curia',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text('Versione $appVersion'),
+            const SizedBox(height: 12),
+            const Text(
+              'PDF e documenti P7M in una sola app. Gratuita, senza pubblicità e senza account.',
+            ),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute<void>(builder: (_) => const HelpPage())),
+              icon: const Icon(Icons.school_outlined),
+              label: const Text('Come funziona'),
+            ),
+            TextButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const PrivacyPage()),
               ),
-              const SizedBox(height: 12),
-              const Text('Versione $appVersion'),
-              const SizedBox(height: 12),
-              const Text(
-                'PDF e documenti P7M in una sola app. Gratuita, senza pubblicità e senza account.',
+              icon: const Icon(Icons.privacy_tip_outlined),
+              label: const Text('Privacy'),
+            ),
+            TextButton.icon(
+              onPressed: () => openWebsite(privacyUrl),
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('Informativa online'),
+            ),
+            TextButton.icon(
+              onPressed: () => openWebsite('mailto:$supportEmail'),
+              icon: const Icon(Icons.mail_outline),
+              label: const Text('Assistenza e privacy'),
+            ),
+            const SelectableText(supportEmail),
+            TextButton.icon(
+              onPressed: () => showLicensePage(
+                context: context,
+                applicationName: 'P7M Gratis',
+                applicationVersion: appVersion,
+                applicationLegalese: 'Sviluppata da Vincenzo Curia',
               ),
-              const SizedBox(height: 16),
-              TextButton.icon(
-                onPressed: () => Navigator.of(
-                  context,
-                ).push(MaterialPageRoute<void>(builder: (_) => const HelpPage())),
-                icon: const Icon(Icons.school_outlined),
-                label: const Text('Come funziona'),
-              ),
-              TextButton.icon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const PrivacyPage()),
-                ),
-                icon: const Icon(Icons.privacy_tip_outlined),
-                label: const Text('Privacy'),
-              ),
-              TextButton.icon(
-                onPressed: () => openWebsite(privacyUrl),
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('Informativa online'),
-              ),
-              TextButton.icon(
-                onPressed: () => openWebsite('mailto:$supportEmail'),
-                icon: const Icon(Icons.mail_outline),
-                label: const Text('Assistenza e privacy'),
-              ),
-              const SelectableText(supportEmail),
-              TextButton.icon(
-                onPressed: () => showLicensePage(
-                  context: context,
-                  applicationName: 'P7M Gratis',
-                  applicationVersion: appVersion,
-                  applicationLegalese: 'Sviluppata da Vincenzo Curia',
-                ),
-                icon: const Icon(Icons.code),
-                label: const Text('Licenze open source'),
-              ),
-              TextButton.icon(
-                onPressed: busy || exporting || checkingRevocation
-                    ? null
-                    : () {
-                        Navigator.pop(dialogContext);
-                        unawaited(clearDocuments());
-                      },
-                icon: const Icon(Icons.cleaning_services_outlined),
-                label: const Text('Chiudi documento e pulisci temporanei'),
-              ),
+              icon: const Icon(Icons.code),
+              label: const Text('Licenze open source'),
+            ),
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                unawaited(clearDocuments());
+              },
+              icon: const Icon(Icons.cleaning_services_outlined),
+              label: const Text('Chiudi documento e pulisci temporanei'),
+            ),
             const SizedBox(height: 8),
             FilledButton.tonalIcon(
               onPressed: () => openWebsite('https://vcuria.app/'),
@@ -474,7 +471,6 @@ class _HomeState extends State<Home> {
             child: const Text('Chiudi'),
           ),
         ],
-      ),
       ),
     );
   }
