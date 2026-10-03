@@ -115,7 +115,6 @@ class _HomeState extends State<Home> {
     final document = doc;
     if (document == null || checkingRevocation) return;
     final id = generation;
-    setState(() => checkingRevocation = true);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -136,10 +135,13 @@ class _HomeState extends State<Home> {
         ],
       ),
     );
-    if (confirmed != true || !mounted || generation != id) {
-      if (mounted) setState(() => checkingRevocation = false);
+    if (confirmed != true ||
+        !mounted ||
+        generation != id ||
+        checkingRevocation) {
       return;
     }
+    setState(() => checkingRevocation = true);
     for (var i = 0; i < document.signers.length; i++) {
       final current =
           assessments[i] ??

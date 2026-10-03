@@ -47,7 +47,7 @@ void main() {
     final cancelledCheck = state.checkRevocation() as Future<void>;
     await tester.pumpAndSettle();
     expect(find.text('Controllo revoca online'), findsOneWidget);
-    expect(state.checkingRevocation, true);
+    expect(state.checkingRevocation, false);
     await tester.tap(find.text('Annulla'));
     await tester.pumpAndSettle();
     await cancelledCheck;
