@@ -3,8 +3,28 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:p7m_gratis/main.dart';
+import 'package:p7m_gratis/help.dart';
 
 void main() {
+  testWidgets('Guida facoltativa e informativa completa disponibili offline', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: HelpPage()));
+    expect(find.text('1. Apri un documento'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('3. Comprendi le firme'), 150);
+    expect(find.textContaining('Non accertata significa'), findsOneWidget);
+    await tester.pumpWidget(const MaterialApp(home: PrivacyPage()));
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pumpAndSettle();
+    final text = tester
+        .widget<SelectableText>(find.byType(SelectableText))
+        .data!;
+    expect(text, contains('support@vcuria.app'));
+    expect(text, contains('24 ore'));
+    expect(text, contains('PAdES'));
+  });
   testWidgets('Nome lungo compatto, dettagli leggibili e comandi accessibili', (
     tester,
   ) async {

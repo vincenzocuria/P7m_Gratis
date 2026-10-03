@@ -1,4 +1,4 @@
-# P7M Gratis mobile 1.1.0
+# P7M Gratis mobile 1.2.0
 
 App gratuita per Android e iOS: apre buste CAdES/PKCS#7, estrae il documento e mostra i risultati delle verifiche. Non richiede account, abbonamenti o pubblicità. I documenti vengono elaborati sul dispositivo.
 
@@ -10,7 +10,7 @@ App gratuita per Android e iOS: apre buste CAdES/PKCS#7, estrae il documento e m
 4. Premi **Controlla revoca online** per contattare gli emittenti dei certificati. Il documento non viene caricato.
 5. Usa **Salva** o **Condividi** per esportare il contenuto originale estratto.
 
-I PDF semplici si aprono nella sola scheda Documento: la UI indica che non sono buste P7M e non verifica eventuali firme PAdES. Dal pulsante **?** si trovano lo sviluppatore Vincenzo Curia, [vcuria.app](https://vcuria.app/) e il download della versione Windows.
+I PDF semplici si aprono direttamente nell’anteprima: la UI indica che non sono buste P7M e non verifica eventuali firme PAdES. Dal pulsante **?** si trovano lo sviluppatore Vincenzo Curia, [vcuria.app](https://vcuria.app/) e il download della versione Windows.
 
 ## Verifiche
 
@@ -55,3 +55,11 @@ La pipeline verifica Android e compila iOS su macOS. L'archivio iOS senza firma 
 La suite copre firme integre e alterate, RSA/ECDSA/PSS, identificatori dei firmatari, attributi mancanti/duplicati, buste annidate con nomi errati, input ASN.1 ostile, OCSP e CRL autentici/revocati/scaduti/manomessi, responder delegati, timestamp con impronta errata, coda allegati e schermi piccoli. Il test Java usa l'esatto validatore PKIX Android con radici sintetiche iniettate e controlla anche firme di certificato alterate e date invalide.
 
 I campioni sono sintetici, senza dati personali o chiavi private. `tool/generate_validation_fixtures.py` permette di rigenerare i campioni di certificati/revoca/marche con le dipendenze Python del repository. La libreria pkcs7 viene usata per leggere X.509; le sue funzioni verify/verifyChain non vengono chiamate.
+
+## Guida, privacy e assistenza
+
+Il menu **?** include guida facoltativa, informativa completa offline, informativa pubblica, support@vcuria.app, versione e licenze open source. Il controllo online richiede conferma esplicita dopo la descrizione dei dati trasmessi.
+
+Le esportazioni usano copie con nomi limitati a 180 byte in una directory privata dedicata. Le copie gestite più vecchie di 24 ore vengono eliminate al successivo avvio; non esiste un timer in background. Il comando di chiusura/pulizia invalida le verifiche in corso, chiude l’anteprima e rimuove i temporanei gestiti senza cancellare originali o file salvati. Durante esportazione o verifica online la pulizia è disabilitata. Su Android la cache del selettore è pulita dopo la lettura; su iOS la pulizia del selettore avviene solo con il comando esplicito, perché il plugin svuota la directory temporanea privata.
+
+Informativa pubblica: https://vincenzocuria.github.io/P7m_Gratis/privacy.html

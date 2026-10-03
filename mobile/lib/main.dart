@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:async';
+import 'dart:io';
 
 import 'core/certificate_service.dart';
 import 'core/revocation.dart';
@@ -16,6 +17,8 @@ import 'package:pdfrx/pdfrx.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'core/p7m.dart';
+import 'core/temporary_files.dart';
+import 'help.dart';
 
 void main() => runApp(const P7mApp());
 
@@ -42,6 +45,8 @@ class _HomeState extends State<Home> {
   static const channel = MethodChannel('app.vcuria.p7m/files');
   P7mDocument? doc;
   bool busy = false;
+  bool exporting = false;
+  late final Future<void> startupCleanup;
   Map? pending;
   List<CertificateAssessment?> assessments = [];
   List<String> timestampDetails = [];
@@ -110,6 +115,32 @@ class _HomeState extends State<Home> {
     final document = doc;
     if (document == null || checkingRevocation) return;
     final id = generation;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        scrollable: true,
+        title: const Text('Controllo revoca online'),
+        content: const Text(
+          'Gli emittenti riceveranno il tuo indirizzo IP e l’identificativo dei certificati. Il documento non viene inviato. Alcuni servizi usano HTTP, senza cifratura della connessione. Puoi leggere ed estrarre il documento anche senza questo controllo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Controlla online'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true ||
+        !mounted ||
+        generation != id ||
+        checkingRevocation) {
+      return;
+    }
     setState(() => checkingRevocation = true);
     for (var i = 0; i < document.signers.length; i++) {
       final current =
@@ -129,6 +160,7 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
+    startupCleanup = cleanOldExports();
     channel.setMethodCallHandler((call) async {
       if (call.method == 'openFile') {
         await receive(call.arguments);
@@ -148,6 +180,14 @@ class _HomeState extends State<Home> {
             setState(() => error = 'Impossibile leggere l’allegato');
           }
         });
+  }
+
+  Future<void> cleanOldExports() async {
+    try {
+      await TemporaryFiles.clean(await TemporaryFiles.root());
+    } catch (_) {
+      // A later manual cleanup reports errors; opening documents stays available.
+    }
   }
 
   Future<void> receive(Object? data) async {
@@ -193,7 +233,7 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> open() async {
-    if (busy) return;
+    if (busy || exporting) return;
     setState(() => busy = true);
     try {
       final selection = await FilePicker.pickFile();
@@ -228,6 +268,15 @@ class _HomeState extends State<Home> {
         );
       }
     } finally {
+      // Android clears only file_picker/. The iOS plugin clears its whole tmp
+      // directory, so it is called only by explicit cleanup after closing preview.
+      if (Platform.isAndroid && !exporting) {
+        try {
+          await FilePicker.clearTemporaryFiles();
+        } catch (_) {
+          // Manual cleanup remains available.
+        }
+      }
       if (mounted) {
         setState(() => busy = false);
         drainPending();
@@ -236,14 +285,19 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> export(bool share) async {
-    final d = doc!;
+    final d = doc;
+    if (d == null || exporting) return;
+    setState(() => exporting = true);
     try {
+      await startupCleanup;
       if (share) {
+        final file = await TemporaryFiles.createExport(d.bytes, d.name);
+        if (!mounted) return;
         final box = context.findRenderObject() as RenderBox?;
         await SharePlus.instance.share(
           ShareParams(
-            files: [XFile.fromData(d.bytes, name: d.name)],
-            fileNameOverrides: [d.name],
+            files: [XFile(file.path)],
+            fileNameOverrides: [TemporaryFiles.exportName(d.name)],
             sharePositionOrigin: box == null
                 ? null
                 : box.localToGlobal(Offset.zero) & box.size,
@@ -251,7 +305,7 @@ class _HomeState extends State<Home> {
         );
       } else {
         final saved = await FilePicker.saveFile(
-          fileName: d.name,
+          fileName: TemporaryFiles.exportName(d.name),
           bytes: d.bytes,
         );
         if (mounted && saved != null) {
@@ -265,7 +319,46 @@ class _HomeState extends State<Home> {
           const SnackBar(content: Text('Esportazione non riuscita')),
         );
       }
+    } finally {
+      if (mounted) setState(() => exporting = false);
     }
+  }
+
+  Future<void> clearDocuments() async {
+    if (busy || exporting || checkingRevocation) return;
+    ++generation;
+    setState(() {
+      busy = true;
+      doc = null;
+      assessments = [];
+      timestampDetails = [];
+      error = null;
+    });
+    var failed = false;
+    try {
+      await startupCleanup;
+      await WidgetsBinding.instance.endOfFrame;
+      await TemporaryFiles.clean(await TemporaryFiles.root(), all: true);
+    } catch (_) {
+      failed = true;
+    }
+    try {
+      await FilePicker.clearTemporaryFiles();
+    } catch (_) {
+      failed = true;
+    }
+    if (!mounted) return;
+    setState(() => busy = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          failed
+              ? 'Documento chiuso. Alcuni temporanei non sono stati cancellati.'
+              : 'Documento chiuso e copie temporanee cancellate',
+        ),
+      ),
+    );
+    drainPending();
   }
 
   Future<void> openWebsite(String address) async {
@@ -301,10 +394,58 @@ class _HomeState extends State<Home> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
+            const Text('Versione $appVersion'),
+            const SizedBox(height: 12),
             const Text(
               'PDF e documenti P7M in una sola app. Gratuita, senza pubblicità e senza account.',
             ),
             const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute<void>(builder: (_) => const HelpPage())),
+              icon: const Icon(Icons.school_outlined),
+              label: const Text('Come funziona'),
+            ),
+            TextButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const PrivacyPage()),
+              ),
+              icon: const Icon(Icons.privacy_tip_outlined),
+              label: const Text('Privacy'),
+            ),
+            TextButton.icon(
+              onPressed: () => openWebsite(privacyUrl),
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('Informativa online'),
+            ),
+            TextButton.icon(
+              onPressed: () => openWebsite('mailto:$supportEmail'),
+              icon: const Icon(Icons.mail_outline),
+              label: const Text('Assistenza e privacy'),
+            ),
+            const SelectableText(supportEmail),
+            TextButton.icon(
+              onPressed: () => showLicensePage(
+                context: context,
+                applicationName: 'P7M Gratis',
+                applicationVersion: appVersion,
+                applicationLegalese: 'Sviluppata da Vincenzo Curia',
+              ),
+              icon: const Icon(Icons.code),
+              label: const Text('Licenze open source'),
+            ),
+            TextButton.icon(
+              onPressed: busy || exporting || checkingRevocation
+                  ? null
+                  : () {
+                      Navigator.pop(dialogContext);
+                      unawaited(clearDocuments());
+                    },
+              icon: const Icon(Icons.cleaning_services_outlined),
+              label: const Text('Chiudi documento e pulisci temporanei'),
+            ),
+            const SizedBox(height: 8),
             FilledButton.tonalIcon(
               onPressed: () => openWebsite('https://vcuria.app/'),
               icon: const Icon(Icons.language),
@@ -408,8 +549,8 @@ class _HomeState extends State<Home> {
                   DocumentHeader(
                     name: d.name,
                     isPlainPdf: d.isPlainPdf,
-                    onSave: () => export(false),
-                    onShare: () => export(true),
+                    onSave: exporting ? null : () => export(false),
+                    onShare: exporting ? null : () => export(true),
                   ),
                   if (!d.isPlainPdf)
                     const TabBar(
@@ -457,6 +598,12 @@ class _HomeState extends State<Home> {
                                   checkingRevocation
                                       ? 'Controllo revoca…'
                                       : 'Controlla revoca online',
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Text(
+                                  'Controllo facoltativo: invia IP e identificativo del certificato agli emittenti, senza il documento. Alcuni servizi usano HTTP.',
                                 ),
                               ),
                               for (final (index, s) in d.signers.indexed)
@@ -538,8 +685,8 @@ class DocumentHeader extends StatelessWidget {
 
   final String name;
   final bool isPlainPdf;
-  final VoidCallback onSave;
-  final VoidCallback onShare;
+  final VoidCallback? onSave;
+  final VoidCallback? onShare;
 
   @override
   Widget build(BuildContext context) {

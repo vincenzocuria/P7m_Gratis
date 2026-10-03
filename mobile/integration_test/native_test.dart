@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -82,8 +83,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Sviluppata da Vincenzo Curia'), findsOneWidget);
     // Let the platform compositor present the dialog before capturing its pixels.
-    await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 1)));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(seconds: 1)),
+    );
     await tester.pumpAndSettle();
     await binding.takeScreenshot('informazioni');
+    await tester.ensureVisible(find.text('Come funziona'));
+    await tester.tap(find.text('Come funziona'));
+    await tester.pumpAndSettle();
+    expect(find.text('1. Apri un documento'), findsOneWidget);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(seconds: 1)),
+    );
+    await tester.pumpAndSettle();
+    await binding.takeScreenshot('guida');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Privacy'));
+    await tester.tap(find.text('Privacy'));
+    await tester.pumpAndSettle();
+    final privacy = tester
+        .widget<SelectableText>(find.byType(SelectableText))
+        .data!;
+    expect(privacy, contains('support@vcuria.app'));
+    expect(privacy, contains('24 ore'));
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Chiudi'));
+    await tester.pumpAndSettle();
+    expect(
+      state.doc.isPlainPdf,
+      true,
+      reason: 'Consultare la guida non perde il documento',
+    );
+    unawaited(state.clearDocuments() as Future<void>);
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 50 && state.busy; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(state.busy, false);
+    expect(find.byType(PdfViewer), findsNothing);
+    expect(find.text('Apri un P7M o PDF'), findsOneWidget);
   });
 }
