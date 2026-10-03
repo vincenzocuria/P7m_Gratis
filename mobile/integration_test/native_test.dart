@@ -81,6 +81,9 @@ void main() {
     await tester.tap(find.byTooltip('Informazioni e sviluppatore'));
     await tester.pumpAndSettle();
     expect(find.text('Sviluppata da Vincenzo Curia'), findsOneWidget);
+    // Let the platform compositor present the dialog before capturing its pixels.
+    await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 1)));
+    await tester.pumpAndSettle();
     await binding.takeScreenshot('informazioni');
   });
 }
