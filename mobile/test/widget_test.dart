@@ -5,6 +5,52 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:p7m_gratis/main.dart';
 
 void main() {
+  testWidgets('Nome lungo compatto, dettagli leggibili e comandi accessibili', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 480);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final name = '${List.filled(40, 'Documento lungo').join(' ')}.pdf';
+    var saves = 0;
+    var shares = 0;
+    for (final scale in [1.0, 2.0]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+            child: Scaffold(
+              body: Column(
+                children: [
+                  DocumentHeader(
+                    name: name,
+                    isPlainPdf: true,
+                    onSave: () => saves++,
+                    onShare: () => shares++,
+                  ),
+                  const Expanded(child: Placeholder()),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(DocumentHeader)).height, lessThan(110));
+      expect(tester.getSize(find.byType(Placeholder)).height, greaterThan(370));
+      await tester.tap(find.byTooltip('Salva'));
+      await tester.tap(find.byTooltip('Condividi'));
+      await tester.tap(find.text(name));
+      await tester.pumpAndSettle();
+      expect(find.byType(SelectableText), findsOneWidget);
+      expect(find.textContaining('PAdES'), findsOneWidget);
+      await tester.tap(find.text('Chiudi'));
+      await tester.pumpAndSettle();
+    }
+    expect(saves, 2);
+    expect(shares, 2);
+  });
   testWidgets('Apertura documenti', (tester) async {
     await tester.pumpWidget(const P7mApp());
     expect(find.text('Apri un P7M o PDF'), findsOneWidget);

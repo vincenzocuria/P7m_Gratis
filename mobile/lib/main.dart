@@ -343,7 +343,11 @@ class _HomeState extends State<Home> {
     final d = doc;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('P7M Gratis'),
+        title: const Text(
+          'P7M Gratis',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           IconButton(
             onPressed: busy ? null : open,
@@ -401,40 +405,18 @@ class _HomeState extends State<Home> {
               length: d.isPlainPdf ? 1 : 2,
               child: Column(
                 children: [
-                  ListTile(
-                    title: Text(d.name),
-                    subtitle: Text(
-                      d.isPlainPdf
-                          ? 'PDF semplice • non è una busta P7M'
-                          : 'P7M • documento estratto',
-                    ),
-                    trailing: Wrap(
-                      children: [
-                        IconButton(
-                          onPressed: () => export(false),
-                          tooltip: 'Salva',
-                          icon: const Icon(Icons.save_alt),
-                        ),
-                        IconButton(
-                          onPressed: () => export(true),
-                          tooltip: 'Condividi',
-                          icon: const Icon(Icons.share),
-                        ),
+                  DocumentHeader(
+                    name: d.name,
+                    isPlainPdf: d.isPlainPdf,
+                    onSave: () => export(false),
+                    onShare: () => export(true),
+                  ),
+                  if (!d.isPlainPdf)
+                    const TabBar(
+                      tabs: [
+                        Tab(text: 'Documento'),
+                        Tab(text: 'Firme'),
                       ],
-                    ),
-                  ),
-                  TabBar(
-                    tabs: [
-                      const Tab(text: 'Documento'),
-                      if (!d.isPlainPdf) const Tab(text: 'Firme'),
-                    ],
-                  ),
-                  if (d.isPlainPdf)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-                      child: Text(
-                        'Lettura PDF. Eventuali firme interne al PDF (PAdES) non vengono verificate.',
-                      ),
                     ),
                   Expanded(
                     child: TabBarView(
@@ -540,6 +522,110 @@ class _HomeState extends State<Home> {
     }
     return const Center(
       child: Text('Salva o condividi il documento per aprirlo.'),
+    );
+  }
+}
+
+/// A bounded header keeps long filenames from displacing the document.
+class DocumentHeader extends StatelessWidget {
+  const DocumentHeader({
+    super.key,
+    required this.name,
+    required this.isPlainPdf,
+    required this.onSave,
+    required this.onShare,
+  });
+
+  final String name;
+  final bool isPlainPdf;
+  final VoidCallback onSave;
+  final VoidCallback onShare;
+
+  @override
+  Widget build(BuildContext context) {
+    final type = isPlainPdf
+        ? 'PDF semplice • non è una busta P7M'
+        : 'P7M • documento estratto';
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  scrollable: true,
+                  title: const Text('Informazioni documento'),
+                  content: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SelectableText(name),
+                      const SizedBox(height: 12),
+                      Text(type),
+                      if (isPlainPdf) ...[
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Lettura PDF. Eventuali firme interne al PDF (PAdES) non vengono verificate.',
+                        ),
+                      ],
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('Chiudi'),
+                    ),
+                  ],
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            type,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(Icons.info_outline, size: 16),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: onSave,
+            tooltip: 'Salva',
+            icon: const Icon(Icons.save_alt),
+          ),
+          IconButton(
+            onPressed: onShare,
+            tooltip: 'Condividi',
+            icon: const Icon(Icons.share),
+          ),
+        ],
+      ),
     );
   }
 }
