@@ -37,7 +37,12 @@ import Security
               throw NSError(domain: "P7M", code: 3)
             }
             let entries = try FileManager.default.contentsOfDirectory(at: temporary, includingPropertiesForKeys: nil)
-            for entry in entries { try FileManager.default.removeItem(at: entry) }
+            var failed = false
+            for entry in entries {
+              do { try FileManager.default.removeItem(at: entry) }
+              catch { failed = true }
+            }
+            if failed { throw NSError(domain: "P7M", code: 4) }
             DispatchQueue.main.async { result(nil) }
           } catch {
             DispatchQueue.main.async { result(FlutterError(code: "CLEAN", message: "Pulizia temporanei incompleta", details: nil)) }
