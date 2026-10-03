@@ -8,4 +8,6 @@ Salvataggio e condivisione utilizzano i servizi di sistema. Condividendo un docu
 
 Le radici fidate sono quelle configurate sul dispositivo. L'app non aggiunge radici e non installa certificati. Non dichiara qualificazione eIDAS o validità legale complessiva della firma.
 
-Sviluppatore: Vincenzo Curia. Versione: 1.0.0.
+Sviluppatore: Vincenzo Curia. Versione: 1.1.0.
+
+I collegamenti al sito dello sviluppatore e alla versione desktop si aprono nel browser esterno solo su richiesta dell’utente. I siti visitati applicano le proprie informative; nessun documento viene inviato tramite questi collegamenti.

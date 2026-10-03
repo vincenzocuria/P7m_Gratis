@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:pdfrx/pdfrx.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'core/p7m.dart';
 
@@ -168,7 +169,7 @@ class _HomeState extends State<Home> {
       doc = null;
     });
     try {
-      final result = await compute(decodeP7m, (
+      final result = await compute(decodeDocument, (
         data['bytes'] as Uint8List,
         data['name'] as String,
       ));
@@ -216,7 +217,7 @@ class _HomeState extends State<Home> {
         builder.add(chunk);
       }
       final bytes = builder.takeBytes();
-      final result = await compute(decodeP7m, (bytes, f.name));
+      final result = await compute(decodeDocument, (bytes, f.name));
       if (mounted) showDocument(result);
     } catch (e) {
       if (mounted) {
@@ -267,6 +268,76 @@ class _HomeState extends State<Home> {
     }
   }
 
+  Future<void> openWebsite(String address) async {
+    try {
+      if (await launchUrl(
+        Uri.parse(address),
+        mode: LaunchMode.externalApplication,
+      )) {
+        return;
+      }
+    } catch (_) {
+      // Keep the document available if a browser cannot be opened.
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossibile aprire il browser')),
+      );
+    }
+  }
+
+  void showInformation() {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        scrollable: true,
+        title: const Text('P7M Gratis'),
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Sviluppata da Vincenzo Curia',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'PDF e documenti P7M in una sola app. Gratuita, senza pubblicità e senza account.',
+            ),
+            const SizedBox(height: 16),
+            FilledButton.tonalIcon(
+              onPressed: () => openWebsite('https://vcuria.app/'),
+              icon: const Icon(Icons.language),
+              label: const Text('Scopri vcuria.app'),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Disponibile anche per Windows: apri ed estrai i P7M sul tuo computer.',
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => openWebsite(
+                'https://github.com/vincenzocuria/P7m_Gratis/releases/tag/v2.1.0',
+              ),
+              icon: const Icon(Icons.desktop_windows_outlined),
+              label: const Text('Versione desktop Windows'),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'I documenti vengono elaborati sul dispositivo. Il controllo facoltativo della revoca contatta gli emittenti dei certificati.',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Chiudi'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = doc;
@@ -276,8 +347,13 @@ class _HomeState extends State<Home> {
         actions: [
           IconButton(
             onPressed: busy ? null : open,
-            tooltip: 'Apri P7M',
+            tooltip: 'Apri P7M o PDF',
             icon: const Icon(Icons.folder_open),
+          ),
+          IconButton(
+            onPressed: showInformation,
+            tooltip: 'Informazioni e sviluppatore',
+            icon: const Icon(Icons.help_outline),
           ),
         ],
       ),
@@ -302,14 +378,14 @@ class _HomeState extends State<Home> {
                       ),
                       const SizedBox(height: 16),
                       const Text(
-                        'Apri, verifica ed estrai un P7M. Elaborazione locale, senza account.',
+                        'Leggi i PDF, apri e verifica i P7M. I tuoi documenti restano sul dispositivo, senza account.',
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 24),
                       FilledButton.icon(
                         onPressed: open,
                         icon: const Icon(Icons.folder_open),
-                        label: const Text('Apri un documento P7M'),
+                        label: const Text('Apri un P7M o PDF'),
                       ),
                       if (error != null)
                         Padding(
@@ -322,11 +398,16 @@ class _HomeState extends State<Home> {
               ),
             )
           : DefaultTabController(
-              length: 2,
+              length: d.isPlainPdf ? 1 : 2,
               child: Column(
                 children: [
                   ListTile(
                     title: Text(d.name),
+                    subtitle: Text(
+                      d.isPlainPdf
+                          ? 'PDF semplice • non è una busta P7M'
+                          : 'P7M • documento estratto',
+                    ),
                     trailing: Wrap(
                       children: [
                         IconButton(
@@ -342,78 +423,87 @@ class _HomeState extends State<Home> {
                       ],
                     ),
                   ),
-                  const TabBar(
+                  TabBar(
                     tabs: [
-                      Tab(text: 'Documento'),
-                      Tab(text: 'Firme'),
+                      const Tab(text: 'Documento'),
+                      if (!d.isPlainPdf) const Tab(text: 'Firme'),
                     ],
                   ),
+                  if (d.isPlainPdf)
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: Text(
+                        'Lettura PDF. Eventuali firme interne al PDF (PAdES) non vengono verificate.',
+                      ),
+                    ),
                   Expanded(
                     child: TabBarView(
                       children: [
                         preview(d),
-                        ListView(
-                          padding: const EdgeInsets.all(16),
-                          children: [
-                            const Card(
-                              child: Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text(
-                                  'Firma e integrità sono controllate sul dispositivo. La catena usa le radici del sistema. Il controllo online contatta solo gli emittenti dei certificati: il documento non viene caricato. Qualifica eIDAS e validità storica non sono accertate.',
+                        if (!d.isPlainPdf)
+                          ListView(
+                            padding: const EdgeInsets.all(16),
+                            children: [
+                              const Card(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Text(
+                                    'Firma e integrità sono controllate sul dispositivo. La catena usa le radici del sistema. Il controllo online contatta solo gli emittenti dei certificati: il documento non viene caricato. Qualifica eIDAS e validità storica non sono accertate.',
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (d.signers.isEmpty)
-                              const ListTile(
-                                title: Text('Nessun firmatario presente'),
+                              if (d.signers.isEmpty)
+                                const ListTile(
+                                  title: Text('Nessun firmatario presente'),
+                                ),
+                              FilledButton.tonalIcon(
+                                onPressed:
+                                    checkingRevocation ||
+                                        assessments.any((a) => a == null)
+                                    ? null
+                                    : checkRevocation,
+                                icon: checkingRevocation
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.security),
+                                label: Text(
+                                  checkingRevocation
+                                      ? 'Controllo revoca…'
+                                      : 'Controlla revoca online',
+                                ),
                               ),
-                            FilledButton.tonalIcon(
-                              onPressed:
-                                  checkingRevocation ||
-                                      assessments.any((a) => a == null)
-                                  ? null
-                                  : checkRevocation,
-                              icon: checkingRevocation
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.security),
-                              label: Text(
-                                checkingRevocation
-                                    ? 'Controllo revoca…'
-                                    : 'Controlla revoca online',
-                              ),
-                            ),
-                            for (final (index, s) in d.signers.indexed)
-                              Card(
-                                child: ListTile(
-                                  leading: Icon(
-                                    (s.integrity == false ||
-                                            assessments[index]?.trusted ==
-                                                false ||
-                                            assessments[index]?.revocation ==
-                                                RevocationStatus.revoked)
-                                        ? Icons.error_outline
-                                        : s.integrity == true &&
+                              for (final (index, s) in d.signers.indexed)
+                                Card(
+                                  child: ListTile(
+                                    leading: Icon(
+                                      (s.integrity == false ||
                                               assessments[index]?.trusted ==
-                                                  true &&
+                                                  false ||
                                               assessments[index]?.revocation ==
-                                                  RevocationStatus.good
-                                        ? Icons.check_circle_outline
-                                        : Icons.help_outline,
-                                  ),
-                                  title: Text(s.name),
-                                  subtitle: Text(
-                                    '${s.detail}\n${timestampDetails[index]}\n${assessments[index]?.detail ?? 'Controllo certificato…'}\n${assessments[index]?.revocationDetail ?? 'Revoca non verificata'}\nScadenza certificato: ${s.expires?.toIso8601String().split('T').first ?? 'non disponibile'}',
+                                                  RevocationStatus.revoked)
+                                          ? Icons.error_outline
+                                          : s.integrity == true &&
+                                                assessments[index]?.trusted ==
+                                                    true &&
+                                                assessments[index]
+                                                        ?.revocation ==
+                                                    RevocationStatus.good
+                                          ? Icons.check_circle_outline
+                                          : Icons.help_outline,
+                                    ),
+                                    title: Text(s.name),
+                                    subtitle: Text(
+                                      '${s.detail}\n${timestampDetails[index]}\n${assessments[index]?.detail ?? 'Controllo certificato…'}\n${assessments[index]?.revocationDetail ?? 'Revoca non verificata'}\nScadenza certificato: ${s.expires?.toIso8601String().split('T').first ?? 'non disponibile'}',
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
+                            ],
+                          ),
                       ],
                     ),
                   ),

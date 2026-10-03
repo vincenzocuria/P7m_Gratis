@@ -1,14 +1,16 @@
-# P7M Gratis mobile 1.0.0
+# P7M Gratis mobile 1.1.0
 
 App gratuita per Android e iOS: apre buste CAdES/PKCS#7, estrae il documento e mostra i risultati delle verifiche. Non richiede account, abbonamenti o pubblicità. I documenti vengono elaborati sul dispositivo.
 
 ## Uso
 
-1. Premi **Apri un documento P7M** o apri/condividi un allegato con P7M Gratis.
+1. Premi **Apri un P7M o PDF** o apri/condividi un allegato con P7M Gratis.
 2. Consulta il documento estratto: PDF, immagini, XML o testo. Altri formati possono essere salvati e aperti con l'app adatta.
 3. Nella scheda **Firme**, leggi separatamente integrità, certificato, marca temporale e revoca.
 4. Premi **Controlla revoca online** per contattare gli emittenti dei certificati. Il documento non viene caricato.
 5. Usa **Salva** o **Condividi** per esportare il contenuto originale estratto.
+
+I PDF semplici si aprono nella sola scheda Documento: la UI indica che non sono buste P7M e non verifica eventuali firme PAdES. Dal pulsante **?** si trovano lo sviluppatore Vincenzo Curia, [vcuria.app](https://vcuria.app/) e il download della versione Windows.
 
 ## Verifiche
 

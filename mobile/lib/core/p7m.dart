@@ -28,7 +28,29 @@ class P7mDocument {
   final Uint8List bytes;
   final String name;
   final List<SignerResult> signers;
-  const P7mDocument(this.bytes, this.name, this.signers);
+  final bool isPlainPdf;
+  const P7mDocument(
+    this.bytes,
+    this.name,
+    this.signers, {
+    this.isPlainPdf = false,
+  });
+}
+
+P7mDocument decodeDocument((Uint8List, String) input) {
+  if (input.$1.length > 50 * 1024 * 1024) {
+    throw const FormatException('Limite di 50 MB superato');
+  }
+  final bytes = input.$1;
+  if (bytes.length >= 8 &&
+      same(bytes.sublist(0, 5), [0x25, 0x50, 0x44, 0x46, 0x2d])) {
+    final name = input.$2
+        .split(RegExp(r'[/\\]'))
+        .last
+        .replaceAll(RegExp(r'[\x00-\x1f]'), '_');
+    return P7mDocument(bytes, name, const [], isPlainPdf: true);
+  }
+  return decodeP7m(input);
 }
 
 List<ASN1Object> children(ASN1Object o) {

@@ -7,7 +7,20 @@ import 'package:p7m_gratis/main.dart';
 void main() {
   testWidgets('Apertura documenti', (tester) async {
     await tester.pumpWidget(const P7mApp());
-    expect(find.text('Apri un documento P7M'), findsOneWidget);
+    expect(find.text('Apri un P7M o PDF'), findsOneWidget);
+  });
+  testWidgets('Informazioni sviluppatore, sito e versione desktop', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const P7mApp());
+    await tester.tap(find.byTooltip('Informazioni e sviluppatore'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sviluppata da Vincenzo Curia'), findsOneWidget);
+    expect(find.text('Scopri vcuria.app'), findsOneWidget);
+    expect(find.text('Versione desktop Windows'), findsOneWidget);
+    await tester.tap(find.text('Chiudi'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sviluppata da Vincenzo Curia'), findsNothing);
   });
   testWidgets('Schermo piccolo senza overflow', (tester) async {
     tester.view.physicalSize = const Size(320, 480);

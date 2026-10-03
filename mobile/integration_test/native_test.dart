@@ -66,5 +66,21 @@ void main() {
     });
     await tester.pumpAndSettle();
     await binding.takeScreenshot('pdf');
+    final pdfBytes = state.doc.bytes;
+    await state.receive({'bytes': pdfBytes, 'name': 'documento.pdf'});
+    await tester.pumpAndSettle();
+    expect(state.doc.isPlainPdf, true);
+    expect(find.text('PDF semplice • non è una busta P7M'), findsOneWidget);
+    expect(find.text('Firme'), findsNothing);
+    expect(find.text('Controlla revoca online'), findsNothing);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(seconds: 3)),
+    );
+    await tester.pumpAndSettle();
+    await binding.takeScreenshot('pdf-semplice');
+    await tester.tap(find.byTooltip('Informazioni e sviluppatore'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sviluppata da Vincenzo Curia'), findsOneWidget);
+    await binding.takeScreenshot('informazioni');
   });
 }
