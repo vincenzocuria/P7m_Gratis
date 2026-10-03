@@ -1,10 +1,8 @@
-P7M Gratis - materiale Google Play
-
-icon-512.png: icona della scheda, 512x512 PNG.
-feature-1024x500.png: grafica in primo piano, 1024x500 PNG.
-01-apertura.png, 02-documento-pdf.png, 03-verifica-firme.png: screenshot reali Android 320x640 PNG senza trasparenza. Dati di prova sintetici.
-
+P7M Gratis 1.2.0 (7) — materiale Google Play
 Pacchetto: app.vcuria.p7m_gratis
-Versione: 1.0.0, codice versione 4.
-Caricare il file .aab nella release della Console Play.
-Firmato con il keystore fornito dal proprietario. Nessuna chiave o password inclusa in questo archivio.
+Icona: 512x512. Grafica in primo piano: 1024x500.
+Screenshot reali della versione finale Android, con soli documenti sintetici. PNG senza trasparenza.
+Carica il bundle .aab; il file .apk serve per test diretti.
+Privacy: https://vincenzocuria.github.io/P7m_Gratis/privacy.html
+Assistenza: support@vcuria.app
+Nessuna chiave o password inclusa.

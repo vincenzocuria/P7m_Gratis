@@ -1,0 +1,27 @@
+Nome: P7M Gratis
+Descrizione breve: Leggi PDF, apri ed estrai P7M. Verifiche sul dispositivo, gratis e senza account.
+
+DESCRIZIONE COMPLETA
+P7M Gratis ti aiuta a leggere PDF e documenti contenuti nei file P7M direttamente sul telefono.
+
+• Apri un PDF semplice o una busta P7M, anche dagli allegati di altre app.
+• Estrai il contenuto dei P7M e visualizza PDF, immagini e documenti di testo.
+• Salva una copia o condividi il documento con l’app che scegli.
+• Consulta separatamente integrità della firma, catena dei certificati e marca temporale.
+• Controlla facoltativamente online lo stato di revoca dei certificati.
+• Trova guida, privacy, assistenza e versione desktop Windows nel menu ?.
+
+Gratuita, senza pubblicità, senza account e senza abbonamenti. Apertura, estrazione e verifiche crittografiche sono eseguite sul dispositivo: il documento non viene caricato su un server dello sviluppatore.
+
+Il controllo della revoca online, solo dopo tua conferma, contatta gli emittenti e trasmette l’indirizzo IP e gli identificativi dei certificati. Alcuni servizi usano HTTP. È possibile usare l’app senza effettuare questo controllo.
+
+I PDF semplici sono indicati chiaramente e non vengono trattati come buste P7M. Le eventuali firme interne ai PDF (PAdES) non vengono verificate.
+
+Le verifiche mostrate non costituiscono un servizio di validazione qualificato né una certificazione della validità legale complessiva della firma. Qualificazione eIDAS e validità storica completa non sono accertate. Un esito non accertato segnala che non è stato possibile completare la verifica.
+
+Limite per file: 50 MB. Android 7 o successivo. Altri formati estratti possono essere salvati e aperti con un’app compatibile.
+
+Sviluppata da Vincenzo Curia.
+Assistenza: support@vcuria.app
+Sito: https://vcuria.app/
+Privacy: https://vincenzocuria.github.io/P7m_Gratis/privacy.html
