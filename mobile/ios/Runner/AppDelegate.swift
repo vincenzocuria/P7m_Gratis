@@ -28,6 +28,21 @@ import Security
           self.pendingError = nil
           self.files?.invokeMethod("fileError", arguments: error)
         }
+      } else if call.method == "cleanTemporaryFiles" {
+        DispatchQueue.global(qos: .userInitiated).async {
+          do {
+            let temporary = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).standardizedFileURL
+            let home = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true).standardizedFileURL
+            guard temporary.path.hasPrefix(home.path + "/"), temporary.path != home.path else {
+              throw NSError(domain: "P7M", code: 3)
+            }
+            let entries = try FileManager.default.contentsOfDirectory(at: temporary, includingPropertiesForKeys: nil)
+            for entry in entries { try FileManager.default.removeItem(at: entry) }
+            DispatchQueue.main.async { result(nil) }
+          } catch {
+            DispatchQueue.main.async { result(FlutterError(code: "CLEAN", message: "Pulizia temporanei incompleta", details: nil)) }
+          }
+        }
       } else if call.method == "verifyTrust", let args = call.arguments as? [String: Any],
                 let leaf = args["leaf"] as? FlutterStandardTypedData,
                 let embedded = args["certificates"] as? [FlutterStandardTypedData] {

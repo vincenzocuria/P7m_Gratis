@@ -272,7 +272,7 @@ class _HomeState extends State<Home> {
       // directory, so it is called only by explicit cleanup after closing preview.
       if (Platform.isAndroid && !exporting) {
         try {
-          await FilePicker.clearTemporaryFiles();
+          await TemporaryFiles.cleanPicker();
         } catch (_) {
           // Manual cleanup remains available.
         }
@@ -343,7 +343,7 @@ class _HomeState extends State<Home> {
       failed = true;
     }
     try {
-      await FilePicker.clearTemporaryFiles();
+      await TemporaryFiles.cleanPicker();
     } catch (_) {
       failed = true;
     }

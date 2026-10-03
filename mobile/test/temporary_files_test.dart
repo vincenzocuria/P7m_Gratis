@@ -26,7 +26,12 @@ void main() {
       await TemporaryFiles.clean(root, all: true);
       expect(await recent.exists(), false);
       expect(await original.exists(), true);
-      expect(await root.exists(), true);
+    expect(await root.exists(), true);
+    await expectLater(
+      TemporaryFiles.clean(root, all: true, folders: ['../']),
+      throwsArgumentError,
+    );
+    expect(await original.exists(), true);
     },
   );
 

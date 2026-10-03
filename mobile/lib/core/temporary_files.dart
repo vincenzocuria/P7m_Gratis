@@ -3,11 +3,22 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
 
 /// Only our export folder and the sharing plugin's folder are managed here.
 /// Never follow links or delete the temporary directory itself.
 class TemporaryFiles {
   static Future<Directory> root() => getTemporaryDirectory();
+
+  static Future<void> cleanPicker() async {
+    if (Platform.isIOS) {
+      // The upstream picker discards deletion errors; use a checked native call.
+      await const MethodChannel('app.vcuria.p7m/files')
+          .invokeMethod<void>('cleanTemporaryFiles');
+    } else if (Platform.isAndroid) {
+      await clean(await root(), all: true, folders: const ['file_picker']);
+    }
+  }
 
   static String exportName(String name) {
     final clean = name.replaceAll(RegExp(r'[\\/\x00-\x1f]'), '_');
@@ -42,9 +53,13 @@ class TemporaryFiles {
     Directory base, {
     bool all = false,
     DateTime? now,
+    List<String> folders = const ['p7m_exports', 'share_plus'],
   }) async {
     final cutoff = (now ?? DateTime.now()).subtract(const Duration(hours: 24));
-    for (final name in ['p7m_exports', 'share_plus']) {
+    for (final name in folders) {
+      if (!const ['p7m_exports', 'share_plus', 'file_picker'].contains(name)) {
+        throw ArgumentError('Unmanaged temporary folder');
+      }
       final folder = Directory('${base.path}/$name');
       if (await FileSystemEntity.type(folder.path, followLinks: false) !=
           FileSystemEntityType.directory) {

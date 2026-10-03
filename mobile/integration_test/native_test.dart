@@ -44,6 +44,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.check_circle_outline), findsNothing);
     await binding.takeScreenshot('firme');
+    final cancelledCheck = state.checkRevocation() as Future<void>;
+    await tester.pumpAndSettle();
+    expect(find.text('Controllo revoca online'), findsOneWidget);
+    expect(state.checkingRevocation, false);
+    await tester.tap(find.text('Annulla'));
+    await tester.pumpAndSettle();
+    await cancelledCheck;
+    expect(state.checkingRevocation, false);
     await state.receive({
       'bytes': base64Decode(pdfP7m),
       'name': 'determina.pdf.p7m',
