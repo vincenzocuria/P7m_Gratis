@@ -31,8 +31,8 @@ import Security
       } else if call.method == "cleanTemporaryFiles" {
         DispatchQueue.global(qos: .userInitiated).async {
           do {
-            let temporary = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).standardizedFileURL
-            let home = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true).standardizedFileURL
+            let temporary = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).resolvingSymlinksInPath().standardizedFileURL
+            let home = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true).resolvingSymlinksInPath().standardizedFileURL
             guard temporary.path.hasPrefix(home.path + "/"), temporary.path != home.path else {
               throw NSError(domain: "P7M", code: 3)
             }

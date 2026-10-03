@@ -130,6 +130,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(state.busy, false);
+    expect(find.text('Documento chiuso e copie temporanee cancellate'), findsOneWidget);
     expect(find.byType(PdfViewer), findsNothing);
     expect(find.text('Apri un P7M o PDF'), findsOneWidget);
   });
