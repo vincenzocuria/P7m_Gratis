@@ -1,0 +1,43 @@
+BUILD DA PUBBLICARE
+P7M Gratis 1.2.0 (7)
+Pacchetto: app.vcuria.p7m_gratis
+Carica solo P7M-Gratis-Android-1.2.0.aab nella nuova release. APK per prova diretta sul telefono.
+
+INFORMATIVA PRIVACY
+https://vincenzocuria.github.io/P7m_Gratis/privacy.html
+Contatto assistenza/privacy: support@vcuria.app
+Informativa completa disponibile anche offline nel menu ?.
+
+CONTENUTI APP
+App senza pubblicità. Nessun account o login: tutte le funzionalità sono accessibili senza credenziali.
+Nessuna funzionalità finanziaria o sanitaria dedicata: aprire documenti di quel tipo non rende l’app un servizio finanziario/sanitario.
+Completa classificazione contenuti, pubblico di destinazione coerente con utenti di documenti, paesi di distribuzione, dichiarazioni richieste dalla Dashboard e verifica dello sviluppatore.
+Il test chiuso 12 tester / 14 giorni si applica solo agli account personali interessati dal requisito Google.
+
+SICUREZZA DEI DATI — COMPILAZIONE PRUDENTE
+Non dichiarare automaticamente assenza totale di raccolta: la revoca facoltativa trasmette identificativi di certificati a terzi.
+Documenti e nomi dei file: elaborati localmente, non raccolti dal servizio dello sviluppatore.
+Foto, posizione, contatti, messaggi, pagamenti, salute: nessuna raccolta dedicata dell’app. Non dedurre raccolta dal contenuto possibile di un documento che resta locale.
+Identificativi dei certificati riconducibili a persone: valutare nella categoria Dati personali / Altre informazioni personali secondo le definizioni del modulo. Raccolta facoltativa, finalità Funzionalità dell’app. La richiesta di revoca è disattivata fino all’azione e alla conferma dell’utente.
+La destinazione vede l’IP: nessuna geolocalizzazione è effettuata dall’app. Valutare identificativi del dispositivo solo se il modulo e l’uso effettivo dell’IP lo richiedono; non inventare uso per localizzazione o analytics.
+Non selezionare elaborazione effimera: non possiamo garantire che gli emittenti non registrino le richieste.
+Non dichiarare che tutti i dati siano cifrati in transito: sono supportati endpoint OCSP/CRL HTTP, oltre a HTTPS.
+La condivisione scelta dall’utente con altra app e il controllo esplicitamente descritto e confermato possono rientrare nell’eccezione Google per trasferimenti richiesti dall’utente; verificare le domande effettive del modulo prima di rispondere su condivisione.
+Nessun account: requisito eliminazione account non applicabile. Il comando di pulizia cancella copie temporanee locali, non i log di emittenti o dati di altre app.
+Richieste privacy a support@vcuria.app. Non promettere cancellazione di dati presso emittenti indipendenti.
+
+FONTI
+https://support.google.com/googleplay/android-developer/answer/10144311
+https://support.google.com/googleplay/android-developer/answer/10787469
+https://support.google.com/googleplay/android-developer/answer/14151465
+
+CONTROLLI FINALI IN CONSOLE
+Verificare anteprima scheda, schermate nuove e report pre-lancio del bundle. Risolvere i blocchi realmente mostrati dalla Dashboard.
+La pubblicazione del file su GitHub non equivale all’approvazione di Google Play. L’informativa non sostituisce la valutazione degli obblighi dell’editore sui trattamenti effettivi di assistenza e sito.
+
+IDENTITÀ DELL’EDITORE E DISTRIBUZIONE UE
+In Play Console mantenere verificati nome legale, email e telefono dell’account e i recapiti pubblici richiesti per il proprio tipo di editore. Il nome dello sviluppatore pubblicato deve essere coerente con l’informativa; l’app è comunque identificata esplicitamente come P7M Gratis.
+Per la futura distribuzione App Store nell’UE, completare la dichiarazione DSA trader/non-trader e i contatti richiesti da Apple. Non dedurre automaticamente non-trader dal prezzo gratuito: anche finalità professionali o promozionali incidono sulla valutazione.
+Le dichiarazioni sulle leggi di esportazione devono essere rese dall’editore in base all’uso effettivo della crittografia; l’app include verifica di firme e connessioni HTTPS.
+Fonti: https://support.google.com/googleplay/android-developer/answer/10840893
+https://developer.apple.com/help/app-store-connect/manage-compliance-information/manage-european-union-digital-services-act-trader-requirements/
