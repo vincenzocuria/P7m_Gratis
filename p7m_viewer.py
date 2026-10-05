@@ -31,7 +31,7 @@ except ImportError:
 
 from p7m_decoder import P7MDecoder
 
-APP_VERSION = "2.1.1"
+APP_VERSION = "2.1.2"
 GITHUB_REPO = "vincenzocuria/P7m_Gratis"
 
 

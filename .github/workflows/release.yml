@@ -78,7 +78,7 @@ jobs:
           $version = $tag.TrimStart('v')
           gh release create $tag `
             --repo "${{ github.repository }}" `
-            --title "P7M Viewer PA $version - Firme annidate" `
+            --title "P7M Viewer PA $version - Nomi di esportazione" `
             --notes-file RELEASE_NOTES.md `
             --latest `
             dist\P7MViewer_Setup.exe `

@@ -1,16 +1,15 @@
-## P7M Viewer PA 2.1.1
+## P7M Viewer PA 2.1.2
 
-Apre i file con firme CAdES annidate, come `documento.pdf.p7m.p7m`, e mostra il documento interno.
+Il nome proposto in esportazione riceve l'estensione del contenuto anche quando il nome del file contiene punti.
 
-- Scarta fino a 8 buste SignedData. Il PDF, l'XML, il testo o l'immagine arrivano all'anteprima invece di restare `application/octet-stream`.
-- I firmatari di ogni busta entrano nel riepilogo. Il pannello continua a mostrare il primo, con gli altri nel tooltip.
-- Oltre 8 buste l'apertura si ferma, senza presentare la busta residua come file sconosciuto.
-- Il nome esportato perde tutti i suffissi `.p7m`.
+- Nomi come `Contratto n. 12.p7m` o `05.10.2026.p7m` diventano `Contratto n. 12.pdf` e `05.10.2026.xml` quando il tipo è riconosciuto.
+- Se il nome termina già con un'estensione nota (`.pdf`, `.xml`, `.png` e le altre gestite) non viene duplicata.
+- I suffissi `.p7m` finali continuano a essere rimossi, anche se ripetuti.
 
 ### Download
 
 - **P7MViewer_Setup.exe**: installer per utente Windows. È il pacchetto che il controllo aggiornamenti scarica all'avvio.
-- **P7MViewer_Portable_v2.1.1.zip**: estrarre tutta la cartella e avviare P7MViewer.exe.
+- **P7MViewer_Portable_v2.1.2.zip**: estrarre tutta la cartella e avviare P7MViewer.exe.
 - **SHA256SUMS.txt**: impronte dei pacchetti.
 
 ### Limiti espliciti
@@ -19,4 +18,4 @@ Qualifica eIDAS non verificata; revoca storica TSA e revoca degli intermedi non 
 
 ### Verifica
 
-Test della doppia busta, del limite di 8 livelli e della suite di estrazione, sicurezza e validazione. Compilazione Windows x64 pubblicata su GitHub Releases.
+Test sui nomi con punti interni, date, estensione già presente e nome semplice, insieme alla suite di estrazione, sicurezza e validazione. Compilazione Windows x64 pubblicata su GitHub Releases.

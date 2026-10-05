@@ -1,4 +1,4 @@
-# P7M Viewer PA 2.1.1
+# P7M Viewer PA 2.1.2
 
 Viewer Windows gratuito per estrarre e consultare documenti CAdES/PKCS#7, PDF, XML, immagini e testo. Sviluppato da Vincenzo Curia.
 
@@ -45,7 +45,8 @@ L'applicazione è in `dist/P7MViewer/P7MViewer.exe`, il setup in `dist/P7MViewer
 
 Controllo tramite GitHub Releases, con download del solo asset `P7MViewer_Setup.exe`. Il SHA-256 fornito dall'API GitHub viene verificato prima dell'esecuzione. Asset senza digest e versioni prerelease/malformate non vengono installati. Il digest protegge da corruzione o sostituzione nel download; non sostituisce una firma Authenticode del publisher.
 
-La 2.1.1 apre le buste CAdES annidate (`.p7m.p7m`) fino al documento interno. All'avvio l'app installata confronta la propria versione con GitHub Releases e, se trova una stabile più recente con `P7MViewer_Setup.exe`, propone l'installer. La 2.1.0 resta la release che ha tolto gli esiti positivi non dimostrati.
+La 2.1.2 aggiunge l'estensione rilevata ai nomi di esportazione che contengono punti interni, come abbreviazioni o date. All'avvio l'app installata confronta la propria versione con GitHub Releases e, se trova una stabile più recente con `P7MViewer_Setup.exe`, propone l'installer. La 2.1.1 resta la release che apre le buste CAdES annidate.
+
 
 ## Ambito
 
