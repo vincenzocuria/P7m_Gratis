@@ -175,8 +175,16 @@ class P7MDecoder:
             inner_name = stripped
         else:
             inner_name = f"estratto{ext}"
-        if '.' not in inner_name:
+        
+        known_extensions = {'.pdf', '.xml', '.png', '.jpg', '.jpeg', '.gif', 
+                           '.docx', '.xlsx', '.zip', '.json', '.html', '.txt', '.bin'}
+        
+        inner_lower = inner_name.lower()
+        has_known_ext = any(inner_lower.endswith(known_ext) for known_ext in known_extensions)
+        
+        if not has_known_ext and ext:
             inner_name += ext
+        
         return inner_name
 
     @classmethod

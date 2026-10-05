@@ -100,6 +100,62 @@ class TestP7MDecoder(unittest.TestCase):
         self.assertEqual(res.get("error"), "Troppe buste P7M annidate")
         self.assertNotIn("payload", res)
 
+    def test_filename_suggestion_with_internal_dots(self):
+        """Test that filenames with internal dots get the detected extension."""
+        pdf = b"%PDF-1.4\n%%EOF"
+        signed = _sign(pdf, "TEST SIGNER")
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "Contratto n. 12.p7m")
+            with open(path, "wb") as handle:
+                handle.write(signed)
+            res = P7MDecoder.decode_file(path)
+
+        self.assertTrue(res["success"])
+        self.assertEqual(res["ext"], ".pdf")
+        self.assertEqual(res["suggested_filename"], "Contratto n. 12.pdf")
+
+    def test_filename_suggestion_with_date_format(self):
+        """Test that date-like filenames with dots get the detected extension."""
+        xml = b'<?xml version="1.0"?><root>test</root>'
+        signed = _sign(xml, "TEST SIGNER")
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "05.10.2026.p7m")
+            with open(path, "wb") as handle:
+                handle.write(signed)
+            res = P7MDecoder.decode_file(path)
+
+        self.assertTrue(res["success"])
+        self.assertEqual(res["ext"], ".xml")
+        self.assertEqual(res["suggested_filename"], "05.10.2026.xml")
+
+    def test_filename_suggestion_already_has_extension(self):
+        """Test that filenames already ending with the correct extension don't get it duplicated."""
+        pdf = b"%PDF-1.4\n%%EOF"
+        signed = _sign(pdf, "TEST SIGNER")
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "documento.pdf.p7m")
+            with open(path, "wb") as handle:
+                handle.write(signed)
+            res = P7MDecoder.decode_file(path)
+
+        self.assertTrue(res["success"])
+        self.assertEqual(res["ext"], ".pdf")
+        self.assertEqual(res["suggested_filename"], "documento.pdf")
+
+    def test_filename_suggestion_simple_name(self):
+        """Test that simple filenames without dots get the detected extension."""
+        txt = b"Test document content"
+        signed = _sign(txt, "TEST SIGNER")
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "documento.p7m")
+            with open(path, "wb") as handle:
+                handle.write(signed)
+            res = P7MDecoder.decode_file(path)
+
+        self.assertTrue(res["success"])
+        self.assertEqual(res["ext"], ".txt")
+        self.assertEqual(res["suggested_filename"], "documento.txt")
+
 
 def _key_and_cert(common_name):
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
