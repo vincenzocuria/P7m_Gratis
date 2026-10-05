@@ -39,6 +39,9 @@ class P7MDecoder:
     3. Signer details & Certificate info
     """
 
+    # Same cap as the mobile viewer: peel at most eight SignedData envelopes.
+    MAX_NESTED_ENVELOPES = 8
+
     @staticmethod
     def is_p7m_file(filepath: str) -> bool:
         ext = os.path.splitext(filepath)[1].lower()
@@ -108,21 +111,32 @@ class P7MDecoder:
                 "original_filename": original_filename
             }
 
+        # Nested CAdES (.p7m.p7m): the first payload is another SignedData.
+        # Stop on a detached inner envelope (no eContent) and keep that payload.
+        depth = 1
+        while cls._is_signed_data(payload):
+            if depth >= cls.MAX_NESTED_ENVELOPES:
+                return {
+                    "success": False,
+                    "error": "Troppe buste P7M annidate",
+                    "original_filename": original_filename
+                }
+            inner_payload, inner_certs, inner_signers, inner_error = cls._extract_pkcs7(payload)
+            if inner_payload is None:
+                break
+            payload = inner_payload
+            certificates.extend(inner_certs)
+            signer_metas.extend(inner_signers)
+            if inner_error:
+                error = inner_error
+            depth += 1
+
         # Calculate payload hash
         payload_hash = hashlib.sha256(payload).hexdigest()
 
         # Determine MIME type and suggested filename
         mime_type, ext = cls.detect_mime_type(payload)
-        
-        # Derive inner filename
-        if original_filename.lower().endswith('.p7m'):
-            inner_name = original_filename[:-4]
-        else:
-            inner_name = f"estratto{ext}"
-            
-        # Ensure inner extension matches detected mime type if inner_name has no extension
-        if '.' not in inner_name:
-            inner_name += ext
+        inner_name = cls._suggested_filename(original_filename, ext)
 
         # Extract primary signer details
         primary_signer = signer_metas[0] if signer_metas else cls._empty_signer_info()
@@ -141,6 +155,29 @@ class P7MDecoder:
             "all_signers": signer_metas,
             "certificate_count": len(certificates)
         }
+
+    @classmethod
+    def _is_signed_data(cls, data: bytes) -> bool:
+        """True when the entire buffer is one CMS ContentInfo of type signedData."""
+        if not data or data[:1] != b'\x30' or not HAS_ASN1CRYPTO:
+            return False
+        try:
+            content_info = cms.ContentInfo.load(data, strict=True)
+            return content_info['content_type'].native == 'signed_data'
+        except Exception:
+            return False
+
+    @classmethod
+    def _suggested_filename(cls, original_filename: str, ext: str) -> str:
+        """Drop every trailing .p7m and apply the detected extension if none remains."""
+        stripped = re.sub(r'(?i)(?:\.p7m)+$', '', original_filename)
+        if stripped and stripped != original_filename:
+            inner_name = stripped
+        else:
+            inner_name = f"estratto{ext}"
+        if '.' not in inner_name:
+            inner_name += ext
+        return inner_name
 
     @classmethod
     def _strip_pem_if_needed(cls, data: bytes) -> bytes:
