@@ -456,7 +456,7 @@ class _HomeState extends State<Home> {
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: () => openWebsite(
-                'https://github.com/vincenzocuria/P7m_Gratis/releases/tag/v2.1.0',
+                'https://github.com/vincenzocuria/P7m_Gratis/releases/latest',
               ),
               icon: const Icon(Icons.desktop_windows_outlined),
               label: const Text('Versione desktop Windows'),

@@ -1,21 +1,16 @@
-## P7M Viewer PA 2.1.0
+## P7M Viewer PA 2.1.1
 
-Release correttiva di sicurezza per Windows x64. Aggiornamento consigliato a tutte le installazioni precedenti.
+Apre i file con firme CAdES annidate, come `documento.pdf.p7m.p7m`, e mostra il documento interno.
 
-- Eliminati gli esiti positivi predefiniti: documenti non firmati, firme PAdES solo rilevate e recuperi raw restano non verificati.
-- Corretto il crash all'import del modulo di revoca.
-- Verifica CMS con attributi obbligatori, contentType, digest supportati e parametri RSA-PSS.
-- Abbinamento esatto del certificato e validazione della catena locale.
-- Revoca OCSP/CRL reale con autenticazione, freschezza e controlli del certificato; niente equivalenza tra HTTP 200 e certificato non revocato.
-- Marche RFC 3161: verifica firma TSA e collegamento alla firma originale.
-- Qualifica eIDAS e revoca storica TSA esplicitamente non accertate: nessuna deduzione da nomi di enti o CA.
-- Riepilogo su tutti i firmatari; decodifica in background senza bloccare la finestra.
-- Aggiornamenti limitati all'installer ufficiale con controllo SHA-256 prima dell'avvio.
+- Scarta fino a 8 buste SignedData. Il PDF, l'XML, il testo o l'immagine arrivano all'anteprima invece di restare `application/octet-stream`.
+- I firmatari di ogni busta entrano nel riepilogo. Il pannello continua a mostrare il primo, con gli altri nel tooltip.
+- Oltre 8 buste l'apertura si ferma, senza presentare la busta residua come file sconosciuto.
+- Il nome esportato perde tutti i suffissi `.p7m`.
 
 ### Download
 
-- **P7MViewer_Setup.exe**: installer per utente Windows.
-- **P7MViewer_Portable_v2.1.0.zip**: estrarre tutta la cartella e avviare P7MViewer.exe.
+- **P7MViewer_Setup.exe**: installer per utente Windows. È il pacchetto che il controllo aggiornamenti scarica all'avvio.
+- **P7MViewer_Portable_v2.1.1.zip**: estrarre tutta la cartella e avviare P7MViewer.exe.
 - **SHA256SUMS.txt**: impronte dei pacchetti.
 
 ### Limiti espliciti
@@ -24,4 +19,4 @@ Qualifica eIDAS non verificata; revoca storica TSA e revoca degli intermedi non 
 
 ### Verifica
 
-Test automatici di estrazione, manipolazione delle firme, certificati falsi, OCSP/CRL validi/scaduti/falsificati, marche temporali, riepilogo multifirma, reattività Qt e integrità degli aggiornamenti. Compilazione Windows x64 e prova del pacchetto compilato.
+Test della doppia busta, del limite di 8 livelli e della suite di estrazione, sicurezza e validazione. Compilazione Windows x64 pubblicata su GitHub Releases.

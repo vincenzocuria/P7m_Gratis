@@ -1,0 +1,86 @@
+name: Windows release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller==6.22.2
+
+      - name: Check version matches the tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -notmatch '^v(?<ver>\d+\.\d+\.\d+)$') { throw "Tag non stabile: $tag" }
+          $version = $Matches.ver
+          $app = [regex]::Match((Get-Content p7m_viewer.py -Raw), 'APP_VERSION = "(?<v>[^"]+)"').Groups['v'].Value
+          $iss = [regex]::Match((Get-Content installer.iss -Raw), 'AppVersion=(?<v>[^\r\n]+)').Groups['v'].Value.Trim()
+          if ($app -ne $version -or $iss -ne $version) {
+            throw "Versione sorgente app=$app installer=$iss diversa dal tag $version"
+          }
+
+      - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest discover -v
+
+      - name: Build application
+        run: python build_exe.py
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "Inno Setup non trovato: $iscc" }
+          & $iscc installer.iss
+          if (-not (Test-Path dist\P7MViewer_Setup.exe)) { throw "Installer non generato" }
+
+      - name: Package portable build and checksums
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $portableName = "P7MViewer_Portable_$tag.zip"
+          $portable = Join-Path dist $portableName
+          if (Test-Path $portable) { Remove-Item $portable }
+          Compress-Archive -Path dist\P7MViewer -DestinationPath $portable
+          $setupHash = (Get-FileHash dist\P7MViewer_Setup.exe -Algorithm SHA256).Hash.ToLower()
+          $portableHash = (Get-FileHash $portable -Algorithm SHA256).Hash.ToLower()
+          $sums = "$setupHash  P7MViewer_Setup.exe`r`n$portableHash  $portableName`r`n"
+          [System.IO.File]::WriteAllText((Join-Path (Get-Location) "dist\SHA256SUMS.txt"), $sums)
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          gh release create $tag `
+            --repo "${{ github.repository }}" `
+            --title "P7M Viewer PA $version - Firme annidate" `
+            --notes-file RELEASE_NOTES.md `
+            --latest `
+            dist\P7MViewer_Setup.exe `
+            "dist\P7MViewer_Portable_$tag.zip" `
+            dist\SHA256SUMS.txt
