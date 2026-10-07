@@ -12,8 +12,6 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.serialization import pkcs7
 from cryptography.x509.oid import NameOID
-from lxml import etree
-
 from p7m_decoder import P7MDecoder
 
 DSIG = "http://www.w3.org/2000/09/xmldsig#"
@@ -78,10 +76,12 @@ def build_pades(key, cert, tamper=False, append=b""):
 
 
 def c14n(element):
+    from lxml import etree
     return etree.tostring(element, method="c14n", exclusive=True, with_comments=False, inclusive_ns_prefixes=[])
 
 
 def build_xades(key, cert, text="Contratto n. 12", wrong_cert_digest=False):
+    from lxml import etree
     certificate_der = cert.public_bytes(serialization.Encoding.DER)
     cert_digest = base64.b64encode(hashlib.sha256(certificate_der).digest()).decode()
     if wrong_cert_digest:

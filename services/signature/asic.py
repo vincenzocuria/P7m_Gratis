@@ -6,7 +6,9 @@ import os
 import zipfile
 from typing import Dict, List, Optional
 
-from lxml import etree
+def _etree():
+    from lxml import etree
+    return etree
 
 MAX_ENTRIES = 64
 MAX_MEMBER = 64 * 1024 * 1024
@@ -83,6 +85,7 @@ def _find(files: Dict[str, bytes], uri: str) -> Optional[bytes]:
 
 
 def manifest_digest_error(manifest: bytes, files: Dict[str, bytes]) -> Optional[str]:
+    etree = _etree()
     try:
         root = etree.fromstring(manifest)
     except etree.XMLSyntaxError as exc:

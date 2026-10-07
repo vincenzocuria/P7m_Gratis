@@ -7,7 +7,16 @@ from typing import Dict, List, Optional
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
-from lxml import etree
+
+etree = None
+
+
+def _load_lxml():
+    global etree
+    if etree is None:
+        from lxml import etree as lxml_etree
+        etree = lxml_etree
+    return etree
 
 DSIG = "http://www.w3.org/2000/09/xmldsig#"
 C14N = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315"
@@ -264,6 +273,7 @@ def _same_bytes(left: bytes, right: bytes) -> bool:
 
 def verify_xml_signatures(xml_bytes: bytes, extra_files: Optional[Dict[str, bytes]] = None) -> List[Dict]:
     """Verify every XML-DSig signature. An empty list means the document has none."""
+    _load_lxml()
     try:
         root = etree.fromstring(xml_bytes, _parser())
     except etree.XMLSyntaxError:
