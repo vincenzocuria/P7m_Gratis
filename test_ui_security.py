@@ -72,7 +72,7 @@ class UISecurityTests(unittest.TestCase):
         timer = QTimer()
         timer.timeout.connect(lambda: ticks.append(1))
         timer.start(10)
-        def slow(*args):
+        def slow(*args, **kwargs):
             time.sleep(0.15)
             return r
         with patch.object(P7MDecoder, 'decode_file', side_effect=slow):
