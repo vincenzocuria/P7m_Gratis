@@ -316,13 +316,18 @@ class XMLSyntaxHighlighter(QSyntaxHighlighter):
 class DecodeThread(QThread):
     decoded = Signal(str, object)
 
-    def __init__(self, filepath, parent=None):
+    def __init__(self, filepath, detached_path=None, parent=None):
         super().__init__(parent)
         self.filepath = filepath
+        self.detached_path = detached_path
 
     def run(self):
         try:
-            result = P7MDecoder.decode_file(self.filepath)
+            detached = None
+            if self.detached_path:
+                with open(self.detached_path, "rb") as handle:
+                    detached = handle.read()
+            result = P7MDecoder.decode_file(self.filepath, detached_content=detached)
         except Exception as exc:
             result = {"success": False, "error": str(exc)}
         self.decoded.emit(self.filepath, result)
@@ -940,7 +945,7 @@ class P7MViewerWindow(QMainWindow):
         lbl_hero_title = QLabel("Visualizzatore Buste Digitali .P7M")
         lbl_hero_title.setObjectName("HeroTitle")
         
-        lbl_hero_sub = QLabel("Estrazione istantanea del contenuto e verifica della struttura dei certificati di firma CAdES / PKCS#7.")
+        lbl_hero_sub = QLabel("Estrazione del contenuto e verifica delle firme CAdES, PAdES, XAdES e ASiC.")
         lbl_hero_sub.setObjectName("HeroSubtitle")
         lbl_hero_sub.setWordWrap(True)
 
@@ -1088,18 +1093,32 @@ class P7MViewerWindow(QMainWindow):
     def open_file_dialog(self):
         filepath, _ = QFileDialog.getOpenFileName(
             self,
-            "Seleziona File Firmato (CAdES / PAdES) o Documento",
+            "Seleziona File Firmato (CAdES / PAdES / XAdES / ASiC) o Documento",
             "",
-            "File Firmati e Documenti (*.p7m *.p7s *.p7c *.p7b *.pdf *.xml *.txt *.png *.jpg);;Tutti i file (*.*)"
+            "File Firmati e Documenti (*.p7m *.p7s *.p7c *.p7b *.pdf *.xml *.asice *.asics *.zip *.txt *.png *.jpg);;Tutti i file (*.*)"
         )
         if filepath:
             self.load_file(filepath)
 
-    def load_file(self, filepath: str):
+    def load_file(self, filepath: str, detached_path: str = None):
         if not os.path.exists(filepath):
             QMessageBox.warning(self, "File non trovato", f"Impossibile trovare il file:\n{filepath}")
             self.add_recent_file(filepath)
             return
+        if detached_path is None and filepath.lower().endswith(".p7s"):
+            sibling = filepath[:-4]
+            if os.path.isfile(sibling):
+                detached_path = sibling
+            else:
+                detached_path, _ = QFileDialog.getOpenFileName(
+                    self,
+                    "Seleziona il documento originale della firma detached",
+                    os.path.dirname(filepath),
+                    "Tutti i file (*.*)",
+                )
+                if not detached_path:
+                    self.lbl_status_msg.setText("Apertura annullata: serve il documento originale.")
+                    return
 
         self.lbl_status_msg.setText(f"Caricamento {os.path.basename(filepath)}...")
         if any(w.isRunning() for w in self._load_threads):
@@ -1109,7 +1128,7 @@ class P7MViewerWindow(QMainWindow):
         self.current_data = None
         self.btn_export.setEnabled(False)
         self.act_export.setEnabled(False)
-        worker = DecodeThread(filepath, self)
+        worker = DecodeThread(filepath, detached_path, self)
         self._load_threads.append(worker)
         worker.decoded.connect(self._display_file)
         worker.finished.connect(lambda w=worker: self._load_threads.remove(w))
@@ -1118,6 +1137,19 @@ class P7MViewerWindow(QMainWindow):
 
     def _display_file(self, filepath, res):
         if filepath != self._latest_load:
+            return
+
+        if res.get("needs_detached_content"):
+            picked, _ = QFileDialog.getOpenFileName(
+                self,
+                "Seleziona il documento originale della firma detached",
+                os.path.dirname(filepath) if filepath else "",
+                "Tutti i file (*.*)",
+            )
+            if picked:
+                self.load_file(filepath, detached_path=picked)
+            else:
+                self.lbl_status_msg.setText("Apertura annullata: serve il documento originale.")
             return
 
         if not res["success"]:
@@ -1517,11 +1549,11 @@ class P7MViewerWindow(QMainWindow):
     def show_info_dialog(self):
         msg = (
             f"<h2>🛡️ P7M Viewer PA — v{APP_VERSION}</h2>"
-            "<p>Software Gratuito per la visualizzazione rapida ed immediata di file firmati digitalmente (.p7m / .p7s).</p>"
+            "<p>Software Gratuito per la visualizzazione di file firmati CAdES, PAdES, XAdES e ASiC.</p>"
             "<p><b>Sviluppato da:</b> <a href='https://vcuria.app'>Vincenzo Curia (vcuria.app)</a></p>"
             "<p><b>Repository GitHub:</b> <a href='https://github.com/vincenzocuria/P7m_Gratis'>https://github.com/vincenzocuria/P7m_Gratis</a></p>"
             "<hr>"
-            "<p><b>Funzionalità:</b> Interfaccia Material Design 3 Expressive, Supporto Temi Chiaro/Scuro/Automatico, Gestione File Recenti, Estrazione busta CAdES/PKCS#7, Controllo Aggiornamenti, anteprima PDF vettoriale, XML formattato ad albero, testi ed immagini.</p>"
+            "<p><b>Funzionalità:</b> Interfaccia Material Design 3 Expressive, Supporto Temi Chiaro/Scuro/Automatico, Gestione File Recenti, Verifica CAdES/PAdES/XAdES/ASiC, Controllo Aggiornamenti, anteprima PDF vettoriale, XML formattato ad albero, testi ed immagini.</p>"
             "<p style='color: #fbbf24;'><b>Nota Legale:</b> Strumento a solo scopo informativo ed estrattivo del contenuto. Non costituisce né sostituisce una verifica di validità legale formale (verificare CRL/OCSP presso le CA accreditate AgID).</p>"
         )
         QMessageBox.about(self, "Informazioni su P7M Viewer PA", msg)
@@ -1530,7 +1562,7 @@ class P7MViewerWindow(QMainWindow):
         QMessageBox.information(self, "Ambito delle verifiche",
             "Il viewer distingue estrazione, integrità crittografica, catena locale e revoca. "
             "La qualifica eIDAS e la revoca storica delle TSA restano non verificate. "
-            "Il controllo PAdES rileva la presenza della firma ma non la valida. "
+            "PAdES è verificato quando la firma CMS copre l'intero PDF. XAdES e ASiC usano gli stessi controlli sul formato riconosciuto. "
             "Un risultato sconosciuto non equivale a una firma valida.")
 
     def closeEvent(self, event):

@@ -16,6 +16,7 @@ def build():
         "--collect-all=cryptography",
         "--collect-all=asn1crypto",
         "--collect-all=pyhanko_certvalidator",
+        "--collect-all=lxml",
         "--collect-all=oscrypto",
         "main.py"
     ]

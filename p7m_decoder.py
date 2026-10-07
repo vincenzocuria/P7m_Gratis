@@ -30,6 +30,14 @@ try:
 except ImportError:
     HAS_SIGNATURE_SERVICES = False
 
+try:
+    from services.signature.pades import extract_pades_signatures
+    from services.signature.xmldsig import verify_xml_signatures
+    from services.signature.asic import inspect_asic, manifest_digest_error
+    HAS_CONTAINER_SIGNATURES = True
+except ImportError:
+    HAS_CONTAINER_SIGNATURES = False
+
 
 class P7MDecoder:
     """
@@ -48,7 +56,7 @@ class P7MDecoder:
         return ext in ('.p7m', '.p7s', '.p7c', '.p7b')
 
     @classmethod
-    def decode_file(cls, filepath_or_bytes: Any) -> Dict[str, Any]:
+    def decode_file(cls, filepath_or_bytes: Any, detached_content: Optional[bytes] = None) -> Dict[str, Any]:
         """
         Decodes a p7m file or raw p7m bytes.
         Returns a dict with:
@@ -74,35 +82,88 @@ class P7MDecoder:
 
         # Clean PEM header if raw text PEM
         data_clean = cls._strip_pem_if_needed(data)
+        container_name = None
+        signature_format = None
+        allow_nested = True
 
-        # Try extracting payload & certificates
-        payload, certificates, signer_metas, error = cls._extract_pkcs7(data_clean)
+        asic = cls._open_asic(data_clean) if HAS_CONTAINER_SIGNATURES else None
+        if isinstance(asic, dict) and "payload" not in asic:
+            return {
+                "success": False,
+                "error": asic.get("error") or "Contenitore ASiC non apribile.",
+                "original_filename": original_filename,
+            }
+        if isinstance(asic, dict):
+            payload = asic["payload"]
+            certificates = asic["certificates"]
+            signer_metas = asic["signers"]
+            error = asic["error"]
+            container_name = asic["name"]
+            signature_format = asic["format"]
+            allow_nested = False
+        else:
+            # Try extracting payload & certificates
+            payload, certificates, signer_metas, error = cls._extract_pkcs7(data_clean)
 
-        if payload is None and not data_clean.startswith(b"%PDF-"):
-            # Fallback attempt: scan binary data for known magic headers (%PDF-, <?xml, etc.)
-            payload = cls._fallback_extract_raw(data_clean)
-            if payload:
-                error = "Payload estratto tramite scansione raw del contenitore PKCS#7."
+            if payload is None and cls._is_signed_data(data_clean):
+                if detached_content is None and isinstance(filepath_or_bytes, str):
+                    sibling = re.sub(r'(?i)\.p7s$', '', filepath_or_bytes)
+                    if sibling != filepath_or_bytes and os.path.isfile(sibling):
+                        try:
+                            with open(sibling, 'rb') as handle:
+                                detached_content = handle.read()
+                        except OSError:
+                            detached_content = None
+                if detached_content is None:
+                    return {
+                        "success": False,
+                        "needs_detached_content": True,
+                        "error": "Firma detached: selezionare il documento originale.",
+                        "original_filename": original_filename,
+                    }
+                payload, certificates, signer_metas, error = cls._extract_pkcs7(
+                    data_clean, external_payload=detached_content, require_detached=True
+                )
+                signature_format = "CAdES detached"
+                if payload is None:
+                    return {
+                        "success": False,
+                        "error": error or "Impossibile verificare la firma detached.",
+                        "original_filename": original_filename,
+                    }
 
-        # Support direct PDF / PAdES files or un-enveloped documents
-        if payload is None:
-            if data_clean.startswith(b"%PDF-"):
-                payload = data_clean
-                pades_info = cls.detect_pades_signature(data_clean)
-                if pades_info:
-                    signer_metas = [pades_info]
-                    error = "Documento PDF con firma digitale PAdES."
-                else:
-                    info = cls._empty_signer_info()
-                    info['signer_name'] = "Documento PDF Diretto (Senza Firma CAdES/P7M)"
-                    signer_metas = [info]
-                    error = None
-            elif b"<?xml" in data_clean[:500] or data_clean.startswith(b"\x89PNG") or data_clean.startswith(b"\xff\xd8\xff"):
-                payload = data_clean
-                info = cls._empty_signer_info()
-                info['signer_name'] = "Documento Diretto (Non in busta CAdES/P7M)"
-                signer_metas = [info]
-                error = None
+            if payload is None and not data_clean.startswith(b"%PDF-") and not cls._looks_like_xml(data_clean):
+                # Fallback attempt: scan binary data for known magic headers (%PDF-, <?xml, etc.)
+                payload = cls._fallback_extract_raw(data_clean)
+                if payload:
+                    error = "Payload estratto tramite scansione raw del contenitore PKCS#7."
+
+            # Support direct PDF / PAdES files or un-enveloped documents
+            if payload is None:
+                if data_clean.startswith(b"%PDF-"):
+                    payload = data_clean
+                    signer_metas, error, verified = cls._read_pades(data_clean)
+                    signature_format = "PAdES" if verified else None
+                    allow_nested = False
+                elif b"<?xml" in data_clean[:500] or data_clean.startswith(b"\x89PNG") or data_clean.startswith(b"\xff\xd8\xff"):
+                    payload = data_clean
+                    if b"<?xml" in data_clean[:500] or data_clean.lstrip().startswith(b"<"):
+                        xml_results = verify_xml_signatures(data_clean) if HAS_CONTAINER_SIGNATURES else []
+                        if xml_results:
+                            signer_metas, certificates = cls._signers_from_xml(xml_results)
+                            signature_format = "XAdES" if any(item.get("profile") == "XAdES" for item in xml_results) else "XML-DSig"
+                            error = None
+                            allow_nested = False
+                        else:
+                            info = cls._empty_signer_info()
+                            info['signer_name'] = "Documento Diretto (Non in busta CAdES/P7M)"
+                            signer_metas = [info]
+                            error = None
+                    else:
+                        info = cls._empty_signer_info()
+                        info['signer_name'] = "Documento Diretto (Non in busta CAdES/P7M)"
+                        signer_metas = [info]
+                        error = None
 
         if payload is None:
             return {
@@ -114,7 +175,7 @@ class P7MDecoder:
         # Nested CAdES (.p7m.p7m): the first payload is another SignedData.
         # Stop on a detached inner envelope (no eContent) and keep that payload.
         depth = 1
-        while cls._is_signed_data(payload):
+        while allow_nested and cls._is_signed_data(payload):
             if depth >= cls.MAX_NESTED_ENVELOPES:
                 return {
                     "success": False,
@@ -136,7 +197,7 @@ class P7MDecoder:
 
         # Determine MIME type and suggested filename
         mime_type, ext = cls.detect_mime_type(payload)
-        inner_name = cls._suggested_filename(original_filename, ext)
+        inner_name = cls._suggested_filename((container_name + ".p7m") if container_name else original_filename, ext)
 
         # Extract primary signer details
         primary_signer = signer_metas[0] if signer_metas else cls._empty_signer_info()
@@ -153,8 +214,14 @@ class P7MDecoder:
             "sha256": payload_hash,
             "signer_info": primary_signer,
             "all_signers": signer_metas,
-            "certificate_count": len(certificates)
+            "certificate_count": len(certificates),
+            "signature_format": signature_format,
         }
+
+    @classmethod
+    def _looks_like_xml(cls, data: bytes) -> bool:
+        sample = data.lstrip(b"\xef\xbb\xbf \t\r\n")
+        return sample.startswith((b"<?xml", b"<"))
 
     @classmethod
     def _is_signed_data(cls, data: bytes) -> bool:
@@ -171,6 +238,7 @@ class P7MDecoder:
     def _suggested_filename(cls, original_filename: str, ext: str) -> str:
         """Drop every trailing .p7m and apply the detected extension if none remains."""
         stripped = re.sub(r'(?i)(?:\.p7m)+$', '', original_filename)
+        stripped = re.sub(r'(?i)(?:\.p7s)+$', '', stripped)
         if stripped and stripped != original_filename:
             inner_name = stripped
         else:
@@ -200,7 +268,168 @@ class P7MDecoder:
         return data
 
     @classmethod
-    def _extract_pkcs7(cls, data: bytes) -> Tuple[Optional[bytes], list, list, Optional[str]]:
+    def _describe_signer(cls, cert, certificates, crypto_res, signer_info=None) -> Dict[str, Any]:
+        cert_meta = CertificateChainValidator.parse_certificate_meta(cert) if cert is not None else {}
+        qtsp_res = TrustedListChecker.is_qtsp_qualified(cert_meta.get("issuer", ""), cert_meta.get("organization", ""))
+        trust_res = validate_path(cert, certificates)
+        issuer = find_issuer(cert, list(certificates) + list(system_roots()))
+        rev_res = RevocationChecker.check_revocation(cert, issuer=issuer)
+        if signer_info is not None:
+            ts_res = TimestampValidator.extract_timestamp(signer_info)
+        else:
+            ts_res = {"present": False, "valid": False, "message": None, "timestamp_date": None, "tsa_name": None}
+        meta = cls._empty_signer_info()
+        meta.update({
+            "signer_name": cert_meta.get("signer_name", "Firmatario Sconosciuto"),
+            "tax_code": cert_meta.get("tax_code"),
+            "organization": cert_meta.get("organization"),
+            "issuer": cert_meta.get("issuer"),
+            "valid_from": cert_meta.get("valid_from"),
+            "valid_to": cert_meta.get("valid_until"),
+            "is_expired": not cert_meta.get("is_valid_now", True),
+            "chain_trusted": trust_res["trusted"],
+            "chain_error": trust_res["error"],
+            "timestamp_message": ts_res.get("message"),
+            "crypto_valid": crypto_res.get("crypto_valid", False),
+            "digest_matches": crypto_res.get("digest_matches", False),
+            "algorithm": crypto_res.get("algorithm", "RSA-SHA256"),
+            "is_qtsp_qualified": qtsp_res.get("is_qualified", False),
+            "qtsp_name": qtsp_res.get("qtsp_name", "Sconosciuto"),
+            "revocation_status": rev_res.get("status", "UNCHECKED_OFFLINE"),
+            "revocation_message": rev_res.get("message"),
+            "timestamp_present": ts_res.get("present", False),
+            "timestamp_valid": ts_res.get("valid", False),
+            "timestamp_date": ts_res.get("timestamp_date"),
+            "timestamp_tsa": ts_res.get("tsa_name"),
+            "validation_error": crypto_res.get("error"),
+        })
+        return meta
+
+    @classmethod
+    def _unverified_signer(cls, name: str, message: str) -> Dict[str, Any]:
+        info = cls._empty_signer_info()
+        info["signer_name"] = name
+        info["validation_error"] = message
+        return info
+
+    @classmethod
+    def _signers_from_xml(cls, results) -> Tuple[list, list]:
+        metas = []
+        certificates = []
+        for result in results:
+            asn_certs = []
+            for der in result.get("certificates") or []:
+                try:
+                    asn_certs.append(x509.Certificate.load(der))
+                except Exception:
+                    continue
+            crypto_res = {
+                "crypto_valid": result.get("crypto_valid"),
+                "digest_matches": result.get("digest_matches"),
+                "algorithm": result.get("algorithm") or result.get("profile") or "XML-DSig",
+                "error": result.get("error"),
+            }
+            if HAS_SIGNATURE_SERVICES and asn_certs:
+                metas.append(cls._describe_signer(asn_certs[0], asn_certs, crypto_res))
+                certificates.extend(asn_certs)
+            else:
+                meta = cls._unverified_signer(result.get("profile") or "Firma XML", result.get("error") or "Firma XML non verificabile")
+                meta["crypto_valid"] = result.get("crypto_valid")
+                meta["digest_matches"] = result.get("digest_matches")
+                meta["algorithm"] = crypto_res["algorithm"]
+                metas.append(meta)
+        return metas, certificates
+
+    @classmethod
+    def _read_pades(cls, pdf: bytes):
+        signatures = extract_pades_signatures(pdf) if HAS_CONTAINER_SIGNATURES else []
+        covering = [item for item in signatures if item["supported"] and item["covers_document"]]
+        if covering:
+            metas = []
+            for item in covering:
+                _, _, signers, cms_error = cls._extract_pkcs7(
+                    item["cms"], external_payload=item["signed_bytes"], require_detached=True
+                )
+                if signers:
+                    metas.extend(signers)
+                else:
+                    failed = cls._unverified_signer("Firma PAdES", cms_error or "CMS PAdES illeggibile")
+                    failed["crypto_valid"] = False
+                    failed["digest_matches"] = False
+                    metas.append(failed)
+            verified = any(item.get("crypto_valid") and item.get("digest_matches") for item in metas)
+            message = "Firma PAdES verificata sul ByteRange dell'intero PDF." if verified else "Firma PAdES non valida."
+            return metas, message, True
+        if signatures:
+            message = signatures[0]["error"] or "Firma PAdES non verificabile."
+            return [cls._unverified_signer("Firma PAdES", message)], message, True
+        detected = cls.detect_pades_signature(pdf)
+        if detected:
+            return [detected], "Documento PDF con firma digitale PAdES.", False
+        info = cls._empty_signer_info()
+        info["signer_name"] = "Documento PDF Diretto (Senza Firma CAdES/P7M)"
+        return [info], None, False
+
+    @classmethod
+    def _open_asic(cls, data: bytes):
+        try:
+            package = inspect_asic(data)
+        except ValueError as exc:
+            return {"error": str(exc)}
+        if package is None:
+            return None
+        files = package["files"]
+        signers = []
+        certificates = []
+        notes = []
+        for name in package["cades"]:
+            manifest_name = None
+            for candidate in package["manifests"]:
+                if os.path.basename(name) in files[candidate].decode("utf-8", "replace"):
+                    manifest_name = candidate
+                    break
+            if manifest_name is None and len(package["manifests"]) == 1 and len(package["cades"]) == 1:
+                manifest_name = package["manifests"][0]
+            if manifest_name:
+                signed_name = manifest_name
+                digest_error = manifest_digest_error(files[manifest_name], files)
+            elif len(package["data_files"]) == 1:
+                signed_name = package["data_files"][0]
+                digest_error = None
+            else:
+                signers.append(cls._unverified_signer("Firma ASiC", "Contenuto della firma CAdES non determinato"))
+                continue
+            _, certs, metas, error = cls._extract_pkcs7(files[name], external_payload=files[signed_name], require_detached=True)
+            certificates.extend(certs)
+            if not metas:
+                signers.append(cls._unverified_signer("Firma ASiC", error or "Firma CAdES illeggibile"))
+            else:
+                if digest_error:
+                    for meta in metas:
+                        meta["digest_matches"] = False
+                        meta["validation_error"] = digest_error
+                signers.extend(metas)
+        for name in package["xades"]:
+            xml_results = verify_xml_signatures(files[name], files)
+            if not xml_results:
+                signers.append(cls._unverified_signer("Firma XAdES", "Firma XML assente nel contenitore"))
+                continue
+            metas, certs = cls._signers_from_xml(xml_results)
+            signers.extend(metas)
+            certificates.extend(certs)
+        if not signers:
+            signers.append(cls._unverified_signer("Contenitore ASiC", "Nessuna firma verificabile nel contenitore"))
+        return {
+            "payload": package["preview"],
+            "signers": signers,
+            "certificates": certificates,
+            "name": package["preview_name"],
+            "format": package["profile"],
+            "error": None,
+        }
+
+    @classmethod
+    def _extract_pkcs7(cls, data: bytes, external_payload: Optional[bytes] = None, require_detached: bool = False) -> Tuple[Optional[bytes], list, list, Optional[str]]:
         certificates = []
         signer_metas = []
 
@@ -230,57 +459,19 @@ class P7MDecoder:
                             if cert_choice.name == 'certificate':
                                 certificates.append(cert_choice.chosen)
 
+                    if require_detached and payload is not None:
+                        return None, certificates, [], "La busta CMS non è una firma detached."
+                    if payload is None:
+                        payload = external_payload
+
                     # Process SignerInfos
                     signer_infos = signed_data['signer_infos']
                     if signer_infos and payload is not None:
                         for sinfo in signer_infos:
                             if HAS_SIGNATURE_SERVICES and certificates:
-                                # 1. Match cert
                                 cert = CertificateChainValidator.match_signer_certificate(sinfo, certificates)
-                                cert_meta = CertificateChainValidator.parse_certificate_meta(cert)
-
-                                # 2. Cryptographic math verification
                                 crypto_res = CryptoVerifier.verify_signer(sinfo, cert, payload, expected_content_type=encap_info["content_type"].native)
-
-                                # 3. QTSP Trusted List
-                                qtsp_res = TrustedListChecker.is_qtsp_qualified(cert_meta.get("issuer", ""), cert_meta.get("organization", ""))
-
-                                # 4. Revocation
-                                trust_res = validate_path(cert, certificates)
-                                issuer = find_issuer(cert, certificates + list(system_roots()))
-                                rev_res = RevocationChecker.check_revocation(cert, issuer=issuer)
-
-                                # 5. Timestamp CAdES-T
-                                ts_res = TimestampValidator.extract_timestamp(sinfo)
-
-                                meta = cls._empty_signer_info()
-                                meta.update({
-                                    "signer_name": cert_meta.get("signer_name", "Firmatario Sconosciuto"),
-                                    "tax_code": cert_meta.get("tax_code"),
-                                    "organization": cert_meta.get("organization"),
-                                    "issuer": cert_meta.get("issuer"),
-                                    "valid_from": cert_meta.get("valid_from"),
-                                    "valid_to": cert_meta.get("valid_until"),
-                                    "is_expired": not cert_meta.get("is_valid_now", True),
-
-                                    "chain_trusted": trust_res["trusted"],
-                                    "chain_error": trust_res["error"],
-                                    "timestamp_message": ts_res.get("message"),
-                                    # Validation Suite
-                                    "crypto_valid": crypto_res.get("crypto_valid", False),
-                                    "digest_matches": crypto_res.get("digest_matches", False),
-                                    "algorithm": crypto_res.get("algorithm", "RSA-SHA256"),
-                                    "is_qtsp_qualified": qtsp_res.get("is_qualified", False),
-                                    "qtsp_name": qtsp_res.get("qtsp_name", "Sconosciuto"),
-                                    "revocation_status": rev_res.get("status", "UNCHECKED_OFFLINE"),
-                                    "revocation_message": rev_res.get("message"),
-                                    "timestamp_present": ts_res.get("present", False),
-                                    "timestamp_valid": ts_res.get("valid", False),
-                                    "timestamp_date": ts_res.get("timestamp_date"),
-                                    "timestamp_tsa": ts_res.get("tsa_name"),
-                                    "validation_error": crypto_res.get("error")
-                                })
-                                signer_metas.append(meta)
+                                signer_metas.append(cls._describe_signer(cert, certificates, crypto_res, sinfo))
                             elif certificates:
                                 meta = cls._parse_asn1crypto_cert(certificates[0])
                                 signer_metas.append(meta)

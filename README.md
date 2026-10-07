@@ -1,6 +1,6 @@
 # P7M Viewer PA 2.1.2
 
-Viewer Windows gratuito per estrarre e consultare documenti CAdES/PKCS#7, PDF, XML, immagini e testo. Sviluppato da Vincenzo Curia.
+Viewer Windows gratuito per estrarre e consultare documenti CAdES/PKCS#7, PAdES, XAdES, ASiC, PDF, XML, immagini e testo. Sviluppato da Vincenzo Curia.
 
 ## Verifiche e significato dei risultati
 
@@ -10,7 +10,9 @@ Viewer Windows gratuito per estrarre e consultare documenti CAdES/PKCS#7, PDF, X
 - **Revoca del certificato firmatario:** richieste OCSP reali o CRL complete e dirette. Verifica firma della risposta, autorizzazione del responder, identificativo del certificato e freschezza. Errori, assenza di nextUpdate, CRL parziali/indirette, responder delegati senza OCSP no-check e formati non supportati restano **non verificati**. La raggiungibilità HTTP non indica assenza di revoca. Gli endpoint devono essere pubblici HTTP(S), senza redirect, sulle porte 80/443.
 - **Marca RFC 3161:** verifica firma CMS del token, impronta della firma originale, EKU esclusivo TSA e catena alla data della marca. La revoca storica TSA non è disponibile: la validità complessiva e la prova di data certa restano **non accertate**, anche se firma e impronta sono corrette.
 - **Qualifica eIDAS:** sempre **non verificata** finché non è disponibile una lista fiduciaria autenticata con storico del servizio. Nomi come Aruba, InfoCert o Comune non costituiscono prova.
-- **PDF/PAdES:** rileva indizi di firma nel PDF, ma non valida le firme PAdES.
+- **PDF/PAdES:** verifica la firma CMS detached sul ByteRange quando il SubFilter è `adbe.pkcs7.detached` o `ETSI.CAdES.detached` e il range copre l'intero PDF. Un indizio senza CMS resta non verificato. I SubFilter diversi non producono un esito positivo.
+- **XAdES / XML-DSig:** verifica firme enveloped e riferimenti nello stesso documento, con certificato in KeyInfo e, se presente, l'impronta XAdES del certificato. Le trasformazioni XPath, XSLT e i riferimenti HTTP non sono accettati.
+- **ASiC-S / ASiC-E:** apre il contenitore ZIP, verifica la firma CAdES detached o XAdES e, nel profilo E, le impronte del manifest sui file di dati.
 - **Documenti non firmati o recuperati tramite scansione:** estraibili e consultabili, senza esiti positivi di verifica.
 
 Il riepilogo considera tutti i firmatari. Il pannello mostra il primo; il tooltip del nome riporta gli esiti di tutti. Un firmatario con firma errata o certificato revocato rende negativo il riepilogo. L'integrità matematica corretta non equivale a qualificazione o validità complessiva della firma.
@@ -19,7 +21,7 @@ Il riepilogo considera tutti i firmatari. Il pannello mostra il primo; il toolti
 
 Anteprima PDF QtPDF, XML formattato e ad albero, immagini e testo; esportazione, stampa, temi chiaro/scuro/automatico, file recenti e associazione Windows .p7m. Decodifica e rete avvengono in un worker: la finestra resta reattiva.
 
-Le firme detached .p7s prive di contenuto richiedono il documento originale e non vengono validate da questo viewer. Il recupero raw è un'estrazione di emergenza, non prova che i byte siano l'originale firmato.
+Una firma detached `.p7s` viene verificata sul documento originale: se il file omonimo è nella stessa cartella viene usato in automatico, altrimenti va selezionato. Il recupero raw è un'estrazione di emergenza, non prova che i byte siano l'originale firmato.
 
 ## Installazione da sorgenti
 
