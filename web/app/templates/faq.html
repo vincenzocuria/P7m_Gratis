@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domande Frequenti (FAQ) - P7M Viewer</title>
+    <meta name="description" content="Domande frequenti su come aprire file P7M, convertire fatture elettroniche in PDF ed Excel, verifica firma digitale.">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="/">P7M Viewer & Converter</a></h1>
+        </div>
+    </header>
+
+    <main class="container">
+        <article class="content-page">
+            <h1>Domande Frequenti (FAQ)</h1>
+
+            <section class="faq-section">
+                <h2>Generale</h2>
+                
+                <details>
+                    <summary>Cosa sono i file .p7m?</summary>
+                    <p>I file con estensione <strong>.p7m</strong> sono documenti firmati digitalmente utilizzando lo standard 
+                    <strong>CAdES (CMS Advanced Electronic Signatures)</strong> basato su PKCS#7. Vengono utilizzati principalmente dalla 
+                    Pubblica Amministrazione italiana e dalle aziende per garantire autenticità e integrità di documenti ufficiali come 
+                    fatture elettroniche, determine, contratti e comunicazioni PEC.</p>
+                </details>
+
+                <details>
+                    <summary>Come faccio ad aprire un file .p7m?</summary>
+                    <p>Puoi aprire un file .p7m in due modi:</p>
+                    <ul>
+                        <li><strong>Online</strong>: Carica il file su questa pagina. Il documento viene estratto e puoi scaricarlo.</li>
+                        <li><strong>Desktop/Mobile</strong>: Scarica l'app gratuita <a href="/download">P7M Viewer</a> per Windows, Android o iPhone.</li>
+                    </ul>
+                </details>
+
+                <details>
+                    <summary>Questo servizio è gratuito?</summary>
+                    <p>Sì, completamente gratuito per l'uso singolo e per batch fino a 20 file.</p>
+                </details>
+            </section>
+
+            <section class="faq-section">
+                <h2>Privacy e Sicurezza</h2>
+
+                <details>
+                    <summary>I miei file vengono salvati sul server?</summary>
+                    <p><strong>No, mai.</strong> Tutti i file vengono elaborati in memoria (RAM) e cancellati immediatamente dopo l'invio 
+                    della risposta al tuo browser. Non conserviamo alcun dato, né file né contenuti estratti. 
+                    Leggi la nostra <a href="/privacy">informativa sulla privacy</a>.</p>
+                </details>
+
+                <details>
+                    <summary>È sicuro caricare documenti riservati?</summary>
+                    <p>Il servizio è progettato con la massima attenzione alla privacy:</p>
+                    <ul>
+                        <li>Connessione HTTPS crittografata</li>
+                        <li>Nessuna conservazione dei file</li>
+                        <li>Server in UE</li>
+                        <li>Codice del decoder pubblico su <a href="https://github.com/vincenzocuria/P7m_Gratis" target="_blank">GitHub</a></li>
+                    </ul>
+                    <p>Se preferisci elaborare tutto offline, usa l'<a href="/download">app desktop P7M Viewer</a>.</p>
+                </details>
+
+                <details>
+                    <summary>La firma digitale viene verificata?</summary>
+                    <p>Sì. Il servizio verifica:</p>
+                    <ul>
+                        <li>Integrità crittografica della firma CMS</li>
+                        <li>Corrispondenza del digest del contenuto</li>
+                        <li>Validità del certificato del firmatario</li>
+                        <li>Catena di fiducia (se i certificati intermedi sono presenti)</li>
+                    </ul>
+                    <p>La verifica di revoca OCSP/CRL viene tentata dove possibile. Come per tutti i viewer, questa verifica 
+                    è informativa e non costituisce una validazione legale completa eIDAS.</p>
+                </details>
+            </section>
+
+            <section class="faq-section">
+                <h2>Fatture Elettroniche</h2>
+
+                <details>
+                    <summary>Posso convertire fatture elettroniche .xml.p7m in PDF?</summary>
+                    <p>Sì! Il servizio riconosce automaticamente le fatture elettroniche FatturaPA e genera un PDF leggibile 
+                    con tutti i dati principali: cedente, cessionario, dettaglio righe, riepilogo IVA e totali.</p>
+                </details>
+
+                <details>
+                    <summary>Posso convertire più fatture in un colpo solo?</summary>
+                    <p>Sì. Carica un file ZIP contenente fino a 20 fatture .xml.p7m. Il sistema elaborerà tutte le fatture e 
+                    ti fornirà un riepilogo Excel con fornitore, numero, data, importi e IVA di ciascuna fattura.</p>
+                    <p>Se hai scaricato lo ZIP "Fatture e Corrispettivi" dall'Agenzia delle Entrate, puoi caricarlo direttamente.</p>
+                </details>
+
+                <details>
+                    <summary>Il PDF generato ha valore fiscale?</summary>
+                    <p><strong>No.</strong> Il PDF è una "copia di cortesia" per facilitare la lettura. L'originale con valore fiscale 
+                    è sempre il file XML trasmesso al Sistema di Interscambio (SdI).</p>
+                </details>
+
+                <details>
+                    <summary>Posso ottenere un Excel delle fatture?</summary>
+                    <p>Sì, per batch di fatture (ZIP). L'Excel generato contiene:</p>
+                    <ul>
+                        <li>Foglio "Riepilogo Fatture": fornitore, P.IVA, numero, data, imponibile, IVA, totale</li>
+                        <li>Foglio "Riepilogo IVA": totali per aliquota IVA</li>
+                    </ul>
+                </details>
+            </section>
+
+            <section class="faq-section">
+                <h2>Limiti e Batch</h2>
+
+                <details>
+                    <summary>Ci sono limiti di dimensione?</summary>
+                    <p>Sì, per prevenire abusi:</p>
+                    <ul>
+                        <li><strong>File singolo:</strong> massimo 10 MB</li>
+                        <li><strong>ZIP:</strong> massimo 50 MB totali</li>
+                        <li><strong>Numero file in ZIP:</strong> massimo 20 file (versione gratuita)</li>
+                    </ul>
+                </details>
+
+                <details>
+                    <summary>Posso elaborare più di 20 file?</summary>
+                    <p>Per la versione gratuita online il limite è 20 file per caricamento. Se hai bisogno di elaborare batch più grandi, 
+                    ti consigliamo di usare l'<a href="/download">app desktop P7M Viewer</a>, che non ha limiti di numero file.</p>
+                </details>
+
+                <details>
+                    <summary>C'è un limite di caricamenti al giorno?</summary>
+                    <p>Sì, per prevenire abusi applichiamo un rate limit: circa 20 caricamenti per ora dallo stesso indirizzo IP. 
+                    Se superi il limite, attendi qualche minuto e riprova.</p>
+                </details>
+            </section>
+
+            <section class="faq-section">
+                <h2>Tipi di File Supportati</h2>
+
+                <details>
+                    <summary>Quali tipi di file .p7m sono supportati?</summary>
+                    <p>Il servizio supporta:</p>
+                    <ul>
+                        <li>Buste CAdES (file .p7m, .p7s, .p7c)</li>
+                        <li>Buste annidate (es. file.xml.p7m.p7m)</li>
+                        <li>Fatture elettroniche .xml.p7m</li>
+                        <li>PDF firmati (PAdES)</li>
+                        <li>Firme detached (.p7s)</li>
+                        <li>Contenitori ASiC-S e ASiC-E</li>
+                        <li>Firme XML (XAdES, XML-DSig)</li>
+                    </ul>
+                </details>
+
+                <details>
+                    <summary>Funziona con i file scaricati dall'Agenzia delle Entrate?</summary>
+                    <p>Sì. Puoi caricare direttamente lo ZIP scaricato dalla sezione "Fatture e Corrispettivi" o "Download Massivo" 
+                    del portale dell'Agenzia delle Entrate. Il servizio elaborerà tutte le fatture contenute.</p>
+                </details>
+            </section>
+
+            <section class="faq-section">
+                <h2>Problemi Comuni</h2>
+
+                <details>
+                    <summary>Il file .p7m non si apre / errore durante l'elaborazione</summary>
+                    <p>Possibili cause:</p>
+                    <ul>
+                        <li>Il file è corrotto o incompleto</li>
+                        <li>Non è un vero file P7M (alcuni file hanno solo l'estensione .p7m ma non contengono una firma valida)</li>
+                        <li>È una firma detached (.p7s) e serve il file originale separato</li>
+                    </ul>
+                    <p>Se il problema persiste, prova con l'<a href="/download">app desktop</a> o contattaci.</p>
+                </details>
+
+                <details>
+                    <summary>La firma risulta "non verificata" o "revocata"</summary>
+                    <p>Può succedere per diversi motivi:</p>
+                    <ul>
+                        <li>Il certificato del firmatario è scaduto</li>
+                        <li>Il certificato è stato revocato</li>
+                        <li>Il server OCSP/CRL non è raggiungibile</li>
+                        <li>Mancano i certificati intermedi nella catena</li>
+                    </ul>
+                    <p>La verifica è informativa. Se hai dubbi sulla validità legale di una firma, consulta un esperto.</p>
+                </details>
+            </section>
+
+            <section class="faq-section">
+                <h2>App Desktop e Mobile</h2>
+
+                <details>
+                    <summary>Dove posso scaricare l'app P7M Viewer?</summary>
+                    <p>Vai alla <a href="/download">pagina Download</a> per scaricare l'app gratuita per Windows, Android o iPhone.</p>
+                </details>
+
+                <details>
+                    <summary>Qual è la differenza tra la versione web e l'app?</summary>
+                    <p>La versione web è comoda per uso occasionale e non richiede installazione. L'app desktop/mobile offre:</p>
+                    <ul>
+                        <li>Elaborazione 100% offline (nessun upload)</li>
+                        <li>Nessun limite di dimensione o numero file</li>
+                        <li>Visualizzazione diretta di PDF, XML, immagini</li>
+                        <li>Associazione automatica con i file .p7m</li>
+                    </ul>
+                </details>
+            </section>
+
+            <section class="faq-section">
+                <h2>Contatti</h2>
+
+                <details>
+                    <summary>Come posso contattarvi?</summary>
+                    <p>Per domande, segnalazioni o richieste, scrivi a: 
+                    <a href="mailto:curiavincenzo86@gmail.com">curiavincenzo86@gmail.com</a></p>
+                </details>
+
+                <details>
+                    <summary>Questo progetto è open source?</summary>
+                    <p>Sì! Il decoder P7M è open source e disponibile su 
+                    <a href="https://github.com/vincenzocuria/P7m_Gratis" target="_blank">GitHub</a>. 
+                    Contributi e segnalazioni di bug sono benvenuti!</p>
+                </details>
+            </section>
+        </article>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Vincenzo Curia | <a href="/privacy">Privacy</a> | <a href="/faq">FAQ</a> | 
+            <a href="https://github.com/vincenzocuria/P7m_Gratis" target="_blank">GitHub</a></p>
+        </div>
+    </footer>
+</body>
+</html>

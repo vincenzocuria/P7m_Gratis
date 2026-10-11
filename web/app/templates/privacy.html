@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informativa sulla Privacy - P7M Viewer</title>
+    <meta name="description" content="Informativa sulla privacy per p7m.vcuria.app - Nessun dato viene salvato, elaborazione in memoria, server in UE.">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><a href="/">P7M Viewer & Converter</a></h1>
+        </div>
+    </header>
+
+    <main class="container">
+        <article class="content-page">
+            <h1>Informativa sulla Privacy</h1>
+            <p><em>Ultimo aggiornamento: 11 ottobre 2026</em></p>
+
+            <h2>1. Introduzione</h2>
+            <p>La tua privacy è fondamentale. Questo servizio è progettato per elaborare i tuoi file <strong>senza conservare alcun dato</strong>.</p>
+
+            <h2>2. Titolare del trattamento</h2>
+            <p><strong>Vincenzo Curia</strong><br>
+            Email: <a href="mailto:curiavincenzo86@gmail.com">curiavincenzo86@gmail.com</a></p>
+
+            <h2>3. Quali dati raccogliamo e perché</h2>
+            
+            <h3>File caricati</h3>
+            <p><strong>Cosa succede:</strong> Quando carichi un file .p7m o ZIP, viene:</p>
+            <ul>
+                <li>Letto in memoria (RAM) del server</li>
+                <li>Elaborato per estrarre il contenuto e verificare la firma</li>
+                <li><strong>Cancellato immediatamente</strong> dopo l'invio della risposta al tuo browser</li>
+            </ul>
+            <p><strong>Nessun file viene mai scritto su disco.</strong> Nessun contenuto viene conservato, né integralmente né in forma anonimizzata.</p>
+
+            <h3>Dati di navigazione (log tecnici)</h3>
+            <p>Il server registra solo:</p>
+            <ul>
+                <li>Indirizzo IP (per rate limiting anti-abuso)</li>
+                <li>Data e ora della richiesta</li>
+                <li>Dimensione del file caricato</li>
+                <li>Esito dell'elaborazione (successo/errore)</li>
+            </ul>
+            <p><strong>Non registriamo:</strong> nomi dei file, contenuto, dati estratti dalle fatture, né altri dati personali.</p>
+            <p><strong>Base giuridica:</strong> Legittimo interesse (art. 6.1.f GDPR) per garantire sicurezza, prevenire abusi e mantenere il servizio operativo.</p>
+            <p><strong>Conservazione:</strong> I log tecnici vengono conservati per massimo 7 giorni, poi cancellati automaticamente.</p>
+
+            <h3>Cookie</h3>
+            <p>Questo sito usa solo <strong>cookie tecnici</strong> strettamente necessari al funzionamento (es. verifica Cloudflare Turnstile). 
+            Non usiamo cookie di tracciamento, profilazione o pubblicitari.</p>
+
+            <h2>4. Ruolo nel trattamento dei dati</h2>
+            <p>Per i file che carichi (che potrebbero contenere dati di fatture di aziende o professionisti), agiamo come <strong>responsabile del trattamento</strong> 
+            ai sensi dell'art. 28 GDPR:</p>
+            <ul>
+                <li><strong>Finalità:</strong> Sola conversione ed estrazione del file caricato</li>
+                <li><strong>Durata:</strong> Il tempo strettamente necessario all'elaborazione (pochi secondi)</li>
+                <li><strong>Istruzioni:</strong> Nessun uso proprio, nessuna conservazione, nessuna profilazione o analisi</li>
+            </ul>
+            <p>Se sei un'azienda o professionista, tu rimani <strong>titolare del trattamento</strong> per i dati contenuti nei file che carichi.</p>
+
+            <h2>5. Dove sono i dati</h2>
+            <p>Il server è ospitato presso: <strong>[Nome provider / località]</strong> nell'Unione Europea.</p>
+
+            <h3>Sub-responsabili</h3>
+            <p>I seguenti servizi esterni potrebbero trattare dati per nostro conto:</p>
+            <ul>
+                <li><strong>Cloudflare</strong> (USA): Proxy DNS e verifica anti-bot Turnstile. I file transitano attraverso Cloudflare solo se il proxy è attivo.</li>
+            </ul>
+            <p>Cloudflare agisce come sub-responsabile ai sensi dell'art. 28 GDPR. Per maggiori informazioni: 
+            <a href="https://www.cloudflare.com/privacypolicy/" target="_blank">Privacy Policy Cloudflare</a>.</p>
+
+            <h2>6. I tuoi diritti</h2>
+            <p>Ai sensi degli artt. 15-22 GDPR, hai diritto a:</p>
+            <ul>
+                <li>Accedere ai tuoi dati personali</li>
+                <li>Chiedere la rettifica o cancellazione</li>
+                <li>Opporti al trattamento</li>
+                <li>Limitare il trattamento</li>
+                <li>Ricevere i dati in formato strutturato (portabilità)</li>
+            </ul>
+            <p><strong>Nota:</strong> Poiché non conserviamo i file caricati né i dati estratti, non abbiamo dati da cancellare o fornire oltre ai log tecnici anonimi.</p>
+            <p>Per esercitare i tuoi diritti o per qualsiasi domanda, scrivi a: <a href="mailto:curiavincenzo86@gmail.com">curiavincenzo86@gmail.com</a></p>
+            <p>Hai anche il diritto di proporre reclamo al <strong>Garante per la protezione dei dati personali</strong>: 
+            <a href="https://www.gpdp.it" target="_blank">www.gpdp.it</a></p>
+
+            <h2>7. Sicurezza</h2>
+            <p>Adottiamo misure tecniche e organizzative per proteggere i dati:</p>
+            <ul>
+                <li>Connessione HTTPS crittografata</li>
+                <li>Elaborazione in memoria senza scrittura su disco</li>
+                <li>Rate limiting per prevenire abusi</li>
+                <li>Parser XML sicuro (senza entità esterne)</li>
+                <li>Limiti di dimensione file e profondità annidamento (anti zip-bomb)</li>
+            </ul>
+
+            <h2>8. Modifiche a questa informativa</h2>
+            <p>Ci riserviamo di aggiornare questa informativa. In caso di modifiche sostanziali, la data in cima alla pagina verrà aggiornata.</p>
+
+            <h2>9. Contatti</h2>
+            <p>Per domande su questa informativa, scrivi a: <a href="mailto:curiavincenzo86@gmail.com">curiavincenzo86@gmail.com</a></p>
+        </article>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Vincenzo Curia | <a href="/privacy">Privacy</a> | <a href="/faq">FAQ</a> | 
+            <a href="https://github.com/vincenzocuria/P7m_Gratis" target="_blank">GitHub</a></p>
+        </div>
+    </footer>
+</body>
+</html>
