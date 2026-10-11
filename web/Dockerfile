@@ -10,13 +10,13 @@ RUN apt-get update && apt-get install -y \
     shared-mime-info \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY web/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ../p7m_decoder.py /app/p7m_decoder.py
-COPY ../services /app/services
+COPY p7m_decoder.py /app/
+COPY services /app/services
 
-COPY app /app/app
+COPY web/app /app/app
 
 ENV PORT=8000
 ENV PYTHONUNBUFFERED=1

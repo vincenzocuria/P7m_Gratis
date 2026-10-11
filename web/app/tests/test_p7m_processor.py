@@ -14,8 +14,8 @@ class TestP7MProcessor(unittest.TestCase):
     
     def setUp(self):
         self.processor = P7MProcessor()
-        self.fixtures_dir = Path(__file__).parent.parent.parent / 'mobile' / 'test' / 'fixtures'
-        self.samples_dir = Path(__file__).parent.parent.parent / 'samples'
+        self.fixtures_dir = Path(__file__).parent.parent.parent.parent / 'mobile' / 'test' / 'fixtures'
+        self.samples_dir = Path(__file__).parent.parent.parent.parent / 'samples'
     
     def test_process_valid_p7m(self):
         """Test elaborazione di un file P7M valido."""

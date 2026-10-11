@@ -13,7 +13,7 @@ class TestFatturaParser(unittest.TestCase):
     
     def setUp(self):
         self.parser = FatturaParser()
-        self.samples_dir = Path(__file__).parent.parent.parent / 'samples'
+        self.samples_dir = Path(__file__).parent.parent.parent.parent / 'samples'
     
     def test_parse_valid_fattura(self):
         """Test parsing di una fattura elettronica valida."""
