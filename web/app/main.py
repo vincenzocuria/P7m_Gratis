@@ -1,14 +1,14 @@
 import os
 import io
 import zipfile
-import tempfile
 import hashlib
 import uuid
-import pickle
 import re
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from pathlib import Path
+import threading
+import time
 
 from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Query
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse, JSONResponse
@@ -23,6 +23,68 @@ from app.services.pdf_generator import PDFGenerator
 from app.services.excel_generator import ExcelGenerator
 from app.services.rate_limiter import RateLimiter
 
+
+# In-memory storage per download temporanei (max 10 minuti, cancellazione dopo primo download)
+download_storage = {}
+download_storage_lock = threading.Lock()
+DOWNLOAD_TTL_SECONDS = 600  # 10 minuti
+
+
+def cleanup_expired_downloads():
+    """Rimuove download scaduti (più vecchi di 10 minuti)."""
+    with download_storage_lock:
+        now = time.time()
+        expired = [
+            download_id for download_id, data in download_storage.items()
+            if now - data['created_at'] > DOWNLOAD_TTL_SECONDS
+        ]
+        for download_id in expired:
+            del download_storage[download_id]
+
+
+def save_temp_data(data: Dict[str, Any]) -> str:
+    """Salva temporaneamente i dati elaborati IN MEMORIA e restituisce un ID."""
+    cleanup_expired_downloads()
+    download_id = str(uuid.uuid4())
+    with download_storage_lock:
+        download_storage[download_id] = {
+            'data': data,
+            'created_at': time.time(),
+            'downloaded': False
+        }
+    return download_id
+
+
+def load_temp_data(download_id: str, mark_downloaded: bool = False) -> Optional[Dict[str, Any]]:
+    """
+    Carica i dati temporanei per un ID.
+    Se mark_downloaded=True, marca come già scaricato e sarà cancellato.
+    """
+    with download_storage_lock:
+        if download_id not in download_storage:
+            return None
+        
+        entry = download_storage[download_id]
+        
+        # Verifica scadenza
+        if time.time() - entry['created_at'] > DOWNLOAD_TTL_SECONDS:
+            del download_storage[download_id]
+            return None
+        
+        # Verifica se già scaricato
+        if entry['downloaded']:
+            return None
+        
+        data = entry['data']
+        
+        # Marca come scaricato se richiesto
+        if mark_downloaded:
+            entry['downloaded'] = True
+            # Programma cancellazione immediata (dopo pochi secondi per gestire download lenti)
+            threading.Timer(5.0, lambda: download_storage.pop(download_id, None)).start()
+        
+        return data
+
 app = FastAPI(
     title="P7M.vcuria.app - Apertura file P7M e conversione fatture elettroniche",
     description="Strumento gratuito per aprire file .p7m e convertire fatture elettroniche in PDF ed Excel",
@@ -34,39 +96,11 @@ templates = Jinja2Templates(directory="app/templates")
 
 rate_limiter = RateLimiter()
 
-
-def cleanup_old_temp_files():
-    """Rimuove file temporanei più vecchi di 1 ora."""
-    cutoff_time = datetime.now() - timedelta(hours=1)
-    for temp_file in TEMP_DIR.glob("*.pkl"):
-        try:
-            if datetime.fromtimestamp(temp_file.stat().st_mtime) < cutoff_time:
-                temp_file.unlink()
-        except Exception:
-            pass
-
-
-def save_temp_data(data: Dict[str, Any]) -> str:
-    """Salva temporaneamente i dati elaborati e restituisce un ID."""
-    cleanup_old_temp_files()
-    download_id = str(uuid.uuid4())
-    temp_file = TEMP_DIR / f"{download_id}.pkl"
-    with open(temp_file, 'wb') as f:
-        pickle.dump(data, f)
-    return download_id
-
-
-def load_temp_data(download_id: str) -> Optional[Dict[str, Any]]:
-    """Carica i dati temporanei per un ID."""
-    temp_file = TEMP_DIR / f"{download_id}.pkl"
-    if not temp_file.exists():
-        return None
-    try:
-        with open(temp_file, 'rb') as f:
-            return pickle.load(f)
-    except Exception:
-        return None
-
+MAX_FILE_SIZE = 10 * 1024 * 1024
+MAX_ZIP_SIZE = 50 * 1024 * 1024
+MAX_BATCH_FILES = 20
+TURNSTILE_SECRET = os.getenv("TURNSTILE_SECRET_KEY", "")
+TURNSTILE_ENABLED = bool(TURNSTILE_SECRET)
 
 def generate_invoice_filename(fattura_data: Dict[str, Any]) -> str:
     """Genera un nome file sensato per la fattura."""
@@ -84,14 +118,6 @@ def generate_invoice_filename(fattura_data: Dict[str, Any]) -> str:
     fornitore = re.sub(r'[^\w\s-]', '', fornitore).strip().replace(' ', '_')
     
     return f"Fattura_{numero}_{data_parte}_{fornitore}.pdf"
-
-MAX_FILE_SIZE = 10 * 1024 * 1024
-MAX_ZIP_SIZE = 50 * 1024 * 1024
-MAX_BATCH_FILES = 20
-TURNSTILE_SECRET = os.getenv("TURNSTILE_SECRET_KEY", "")
-TURNSTILE_ENABLED = bool(TURNSTILE_SECRET)
-TEMP_DIR = Path(tempfile.gettempdir()) / "p7m_web_temp"
-TEMP_DIR.mkdir(exist_ok=True)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -360,11 +386,15 @@ async def download_file(
     """
     Scarica file elaborati.
     
+    PRIVACY: Il file viene cancellato immediatamente dopo il primo download.
+    I link di download scadono dopo 10 minuti se non utilizzati.
+    
     - download_type='pdf': Scarica il PDF della fattura singola
     - download_type='xml': Scarica l'XML estratto dalla firma
     - download_type='batch': Scarica ZIP con PDF di tutte le fatture + Excel riepilogo
     """
-    temp_data = load_temp_data(download_id)
+    # Carica dati e marca come scaricato (verranno cancellati dopo il download)
+    temp_data = load_temp_data(download_id, mark_downloaded=True)
     if not temp_data:
         raise HTTPException(status_code=404, detail="Download non trovato o scaduto.")
     

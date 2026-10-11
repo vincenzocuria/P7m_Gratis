@@ -33,9 +33,21 @@
             <ul>
                 <li>Letto in memoria (RAM) del server</li>
                 <li>Elaborato per estrarre il contenuto e verificare la firma</li>
-                <li><strong>Cancellato immediatamente</strong> dopo l'invio della risposta al tuo browser</li>
+                <li><strong>Mai scritto su disco</strong> - il file originale caricato non viene mai salvato</li>
             </ul>
-            <p><strong>Nessun file viene mai scritto su disco.</strong> Nessun contenuto viene conservato, né integralmente né in forma anonimizzata.</p>
+            <p><strong>I file originali caricati non vengono mai salvati, né su disco né in memoria oltre il tempo di elaborazione.</strong></p>
+
+            <h3>File generati (PDF, Excel)</h3>
+            <p><strong>Cosa succede:</strong> I risultati dell'elaborazione (PDF delle fatture, file Excel riepilogativo):</p>
+            <ul>
+                <li>Vengono mantenuti <strong>solo in memoria (RAM)</strong>, mai scritti su disco</li>
+                <li>Restano disponibili per il download per <strong>massimo 10 minuti</strong></li>
+                <li>Vengono <strong>cancellati immediatamente dopo il primo download</strong> riuscito</li>
+                <li>Vengono automaticamente cancellati dopo 10 minuti anche se non scaricati</li>
+            </ul>
+            <p><strong>Perché questa scelta:</strong> Per permetterti di scaricare i risultati, dobbiamo mantenerli temporaneamente. 
+            Abbiamo scelto il periodo più breve tecnicamente ragionevole (10 minuti) e la cancellazione immediata dopo il primo download 
+            per garantire la massima privacy.</p>
 
             <h3>Dati di navigazione (log tecnici)</h3>
             <p>Il server registra solo:</p>
@@ -47,7 +59,8 @@
             </ul>
             <p><strong>Non registriamo:</strong> nomi dei file, contenuto, dati estratti dalle fatture, né altri dati personali.</p>
             <p><strong>Base giuridica:</strong> Legittimo interesse (art. 6.1.f GDPR) per garantire sicurezza, prevenire abusi e mantenere il servizio operativo.</p>
-            <p><strong>Conservazione:</strong> I log tecnici vengono conservati per massimo 7 giorni, poi cancellati automaticamente.</p>
+            <p><strong>Conservazione:</strong> I log tecnici vengono conservati per massimo 7 giorni, poi cancellati automaticamente. 
+            I file generati (PDF, Excel) vengono conservati in memoria per massimo 10 minuti o fino al primo download.</p>
 
             <h3>Cookie</h3>
             <p>Questo sito usa solo <strong>cookie tecnici</strong> strettamente necessari al funzionamento (es. verifica Cloudflare Turnstile). 
@@ -92,7 +105,8 @@
             <p>Adottiamo misure tecniche e organizzative per proteggere i dati:</p>
             <ul>
                 <li>Connessione HTTPS crittografata</li>
-                <li>Elaborazione in memoria senza scrittura su disco</li>
+                <li>File caricati elaborati solo in memoria, mai scritti su disco</li>
+                <li>File generati conservati solo in memoria per max 10 minuti, cancellati dopo primo download</li>
                 <li>Rate limiting per prevenire abusi</li>
                 <li>Parser XML sicuro (senza entità esterne)</li>
                 <li>Limiti di dimensione file e profondità annidamento (anti zip-bomb)</li>

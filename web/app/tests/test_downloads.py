@@ -1,16 +1,17 @@
 import sys
 import os
 import unittest
-import tempfile
+import time
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 import io
 
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi.testclient import TestClient
-from app.main import app, save_temp_data, load_temp_data, generate_invoice_filename
+from app.main import app, save_temp_data, load_temp_data, generate_invoice_filename, download_storage, DOWNLOAD_TTL_SECONDS
 
 
 class TestDownloads(unittest.TestCase):
@@ -18,9 +19,15 @@ class TestDownloads(unittest.TestCase):
     
     def setUp(self):
         self.client = TestClient(app)
+        # Pulisci storage prima di ogni test
+        download_storage.clear()
+    
+    def tearDown(self):
+        # Pulisci storage dopo ogni test
+        download_storage.clear()
     
     def test_save_and_load_temp_data(self):
-        """Test salvataggio e caricamento dati temporanei."""
+        """Test salvataggio e caricamento dati temporanei IN MEMORIA."""
         test_data = {
             'type': 'single',
             'filename': 'test.pdf',
@@ -32,6 +39,9 @@ class TestDownloads(unittest.TestCase):
         self.assertIsNotNone(download_id)
         self.assertIsInstance(download_id, str)
         
+        # Verifica che sia in memoria, non su disco
+        self.assertIn(download_id, download_storage)
+        
         loaded_data = load_temp_data(download_id)
         self.assertIsNotNone(loaded_data)
         self.assertEqual(loaded_data['type'], 'single')
@@ -41,6 +51,68 @@ class TestDownloads(unittest.TestCase):
         """Test caricamento di dati inesistenti."""
         result = load_temp_data('nonexistent-id')
         self.assertIsNone(result)
+    
+    def test_download_deleted_after_first_access(self):
+        """Test che i dati vengono cancellati dopo il primo download."""
+        test_data = {
+            'type': 'single',
+            'filename': 'test.pdf',
+            'xml_payload': b'<xml>test</xml>',
+            'fattura_data': {'numero': '123'}
+        }
+        
+        download_id = save_temp_data(test_data)
+        
+        # Primo accesso con mark_downloaded=True
+        first_load = load_temp_data(download_id, mark_downloaded=True)
+        self.assertIsNotNone(first_load)
+        
+        # Verifica che sia marcato come scaricato
+        self.assertTrue(download_storage[download_id]['downloaded'])
+        
+        # Secondo accesso dovrebbe fallire (già scaricato)
+        second_load = load_temp_data(download_id, mark_downloaded=False)
+        self.assertIsNone(second_load)
+    
+    def test_ttl_expiration(self):
+        """Test che i dati scadono dopo il TTL (10 minuti)."""
+        test_data = {
+            'type': 'single',
+            'filename': 'test.pdf',
+            'xml_payload': b'<xml>test</xml>',
+            'fattura_data': {'numero': '123'}
+        }
+        
+        download_id = save_temp_data(test_data)
+        
+        # Simula scadenza modificando il timestamp
+        download_storage[download_id]['created_at'] = time.time() - (DOWNLOAD_TTL_SECONDS + 1)
+        
+        # Tentativo di caricamento dopo scadenza
+        loaded_data = load_temp_data(download_id)
+        self.assertIsNone(loaded_data)
+        
+        # Verifica che sia stato rimosso dallo storage
+        self.assertNotIn(download_id, download_storage)
+    
+    def test_ttl_not_expired(self):
+        """Test che i dati NON scadono prima del TTL."""
+        test_data = {
+            'type': 'single',
+            'filename': 'test.pdf',
+            'xml_payload': b'<xml>test</xml>',
+            'fattura_data': {'numero': '123'}
+        }
+        
+        download_id = save_temp_data(test_data)
+        
+        # Simula tempo appena prima della scadenza
+        download_storage[download_id]['created_at'] = time.time() - (DOWNLOAD_TTL_SECONDS - 10)
+        
+        # Dovrebbe ancora essere caricabile
+        loaded_data = load_temp_data(download_id)
+        self.assertIsNotNone(loaded_data)
+        self.assertEqual(loaded_data['filename'], 'test.pdf')
     
     def test_generate_invoice_filename(self):
         """Test generazione nome file fattura."""
@@ -78,10 +150,34 @@ class TestDownloads(unittest.TestCase):
         self.assertNotIn('!', filename)
     
     def test_download_endpoint_not_found(self):
-        """Test endpoint download con ID inesistente."""
+        """Test endpoint download con ID inesistente o scaduto."""
         response = self.client.get('/api/download/pdf?download_id=invalid-id')
         self.assertEqual(response.status_code, 404)
         self.assertIn('non trovato', response.json()['detail'].lower())
+    
+    def test_download_endpoint_already_downloaded(self):
+        """Test endpoint download con file già scaricato una volta."""
+        test_data = {
+            'type': 'single',
+            'filename': 'test.xml',
+            'xml_payload': b'<xml>test</xml>',
+            'fattura_data': {
+                'dati_generali': {'numero': '1', 'data': '2024-01-01'},
+                'cedente': {'denominazione': 'Test'}
+            },
+            'pdf_bytes': b'%PDF-1.4 fake pdf content'
+        }
+        
+        download_id = save_temp_data(test_data)
+        
+        # Primo download (dovrebbe funzionare)
+        response1 = self.client.get(f'/api/download/pdf?download_id={download_id}')
+        self.assertEqual(response1.status_code, 200)
+        
+        # Secondo download (dovrebbe fallire - già scaricato)
+        time.sleep(0.1)  # Piccola pausa per permettere al sistema di processare
+        response2 = self.client.get(f'/api/download/pdf?download_id={download_id}')
+        self.assertEqual(response2.status_code, 404)
     
     def test_download_pdf_success(self):
         """Test download PDF singolo."""
