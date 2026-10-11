@@ -152,16 +152,42 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
         
-        if (data.fattura) {
+        if (data.fattura && data.download_id) {
             html += `
                 <div style="margin-top: 1.5rem;">
                     <h4>Fattura Elettronica</h4>
-                    <p>Questa è una fattura elettronica. Puoi:</p>
-                    <ul>
-                        <li>Scaricare il PDF di cortesia (senza valore fiscale)</li>
-                        <li>Scaricare l'XML originale</li>
-                    </ul>
-                    ${data.pdf_available ? '<p><em>Nota: Generazione PDF in corso di implementazione completa...</em></p>' : ''}
+                    <p>Questa è una fattura elettronica. Puoi scaricare:</p>
+                    <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <a href="/api/download/pdf?download_id=${data.download_id}" 
+                           class="btn btn-primary" 
+                           download
+                           style="display: inline-block; padding: 0.75rem 1.5rem; background-color: #C5504B; color: white; text-decoration: none; border-radius: 6px; font-weight: 500;">
+                            📄 Scarica PDF
+                        </a>
+                        <a href="/api/download/xml?download_id=${data.download_id}" 
+                           class="btn btn-secondary" 
+                           download
+                           style="display: inline-block; padding: 0.75rem 1.5rem; background-color: #6c757d; color: white; text-decoration: none; border-radius: 6px; font-weight: 500;">
+                            📋 Scarica XML
+                        </a>
+                    </div>
+                    <p style="margin-top: 1rem; font-size: 0.9em; color: #666;">
+                        <em>Nota: Il PDF è un documento di cortesia senza valore fiscale. Il file con valore legale è l'XML.</em>
+                    </p>
+                </div>
+            `;
+        } else if (data.download_id) {
+            html += `
+                <div style="margin-top: 1.5rem;">
+                    <h4>Download disponibili</h4>
+                    <div style="margin-top: 1rem;">
+                        <a href="/api/download/xml?download_id=${data.download_id}" 
+                           class="btn btn-primary" 
+                           download
+                           style="display: inline-block; padding: 0.75rem 1.5rem; background-color: #C5504B; color: white; text-decoration: none; border-radius: 6px; font-weight: 500;">
+                            📋 Scarica file estratto
+                        </a>
+                    </div>
                 </div>
             `;
         }
@@ -182,11 +208,22 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         
-        if (data.fatture_count > 0) {
+        if (data.fatture_count > 0 && data.download_id) {
             html += `
                 <div style="margin-top: 1.5rem;">
                     <h4>Download disponibili</h4>
-                    <p><em>Nota: Funzionalità di download batch in fase di completamento...</em></p>
+                    <p>Scarica un archivio ZIP contenente tutti i PDF delle fatture + un file Excel riepilogativo per il commercialista.</p>
+                    <div style="margin-top: 1rem;">
+                        <a href="/api/download/batch?download_id=${data.download_id}" 
+                           class="btn btn-primary" 
+                           download
+                           style="display: inline-block; padding: 0.75rem 1.5rem; background-color: #C5504B; color: white; text-decoration: none; border-radius: 6px; font-weight: 500;">
+                            📦 Scarica ZIP (PDF + Excel)
+                        </a>
+                    </div>
+                    <p style="margin-top: 1rem; font-size: 0.9em; color: #666;">
+                        <em>Il file Excel contiene un riepilogo delle fatture con importi e aliquote IVA.</em>
+                    </p>
                 </div>
             `;
         }

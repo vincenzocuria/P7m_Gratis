@@ -3,11 +3,14 @@ import io
 import zipfile
 import tempfile
 import hashlib
-from datetime import datetime
-from typing import Optional, List
+import uuid
+import pickle
+import re
+from datetime import datetime, timedelta
+from typing import Optional, List, Dict, Any
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile, Request, HTTPException
+from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Query
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -31,11 +34,64 @@ templates = Jinja2Templates(directory="app/templates")
 
 rate_limiter = RateLimiter()
 
+
+def cleanup_old_temp_files():
+    """Rimuove file temporanei più vecchi di 1 ora."""
+    cutoff_time = datetime.now() - timedelta(hours=1)
+    for temp_file in TEMP_DIR.glob("*.pkl"):
+        try:
+            if datetime.fromtimestamp(temp_file.stat().st_mtime) < cutoff_time:
+                temp_file.unlink()
+        except Exception:
+            pass
+
+
+def save_temp_data(data: Dict[str, Any]) -> str:
+    """Salva temporaneamente i dati elaborati e restituisce un ID."""
+    cleanup_old_temp_files()
+    download_id = str(uuid.uuid4())
+    temp_file = TEMP_DIR / f"{download_id}.pkl"
+    with open(temp_file, 'wb') as f:
+        pickle.dump(data, f)
+    return download_id
+
+
+def load_temp_data(download_id: str) -> Optional[Dict[str, Any]]:
+    """Carica i dati temporanei per un ID."""
+    temp_file = TEMP_DIR / f"{download_id}.pkl"
+    if not temp_file.exists():
+        return None
+    try:
+        with open(temp_file, 'rb') as f:
+            return pickle.load(f)
+    except Exception:
+        return None
+
+
+def generate_invoice_filename(fattura_data: Dict[str, Any]) -> str:
+    """Genera un nome file sensato per la fattura."""
+    dati_gen = fattura_data.get('dati_generali', {})
+    cedente = fattura_data.get('cedente', {})
+    
+    numero = dati_gen.get('numero', 'N').replace('/', '-')
+    data = dati_gen.get('data', '')
+    if data and len(data) >= 10:
+        data_parte = data[:10].replace('-', '')
+    else:
+        data_parte = 'NNNNNNNN'
+    
+    fornitore = cedente.get('denominazione', 'Fornitore')[:30]
+    fornitore = re.sub(r'[^\w\s-]', '', fornitore).strip().replace(' ', '_')
+    
+    return f"Fattura_{numero}_{data_parte}_{fornitore}.pdf"
+
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_ZIP_SIZE = 50 * 1024 * 1024
 MAX_BATCH_FILES = 20
 TURNSTILE_SECRET = os.getenv("TURNSTILE_SECRET_KEY", "")
 TURNSTILE_ENABLED = bool(TURNSTILE_SECRET)
+TEMP_DIR = Path(tempfile.gettempdir()) / "p7m_web_temp"
+TEMP_DIR.mkdir(exist_ok=True)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -166,7 +222,7 @@ async def process_single_file(content: bytes, filename: str):
     }
     
     is_fattura = filename.lower().endswith('.xml.p7m') or (
-        result['mime_type'] == 'text/xml' and b'FatturaElettronica' in content[:5000]
+        result['mime_type'] == 'text/xml' and b'FatturaElettronica' in result['payload'][:5000]
     )
     
     if is_fattura:
@@ -179,6 +235,24 @@ async def process_single_file(content: bytes, filename: str):
             pdf_bytes = pdf_gen.generate_invoice_pdf(fattura_data, result['payload'])
             response_data['pdf_available'] = True
             response_data['pdf_size'] = len(pdf_bytes)
+            
+            temp_data = {
+                'type': 'single',
+                'filename': result['suggested_filename'],
+                'xml_payload': result['payload'],
+                'fattura_data': fattura_data,
+                'pdf_bytes': pdf_bytes
+            }
+            download_id = save_temp_data(temp_data)
+            response_data['download_id'] = download_id
+    else:
+        temp_data = {
+            'type': 'single_xml',
+            'filename': result['suggested_filename'],
+            'xml_payload': result['payload']
+        }
+        download_id = save_temp_data(temp_data)
+        response_data['download_id'] = download_id
     
     return JSONResponse(content=response_data)
 
@@ -202,7 +276,9 @@ async def process_zip_batch(content: bytes, filename: str):
             
             processor = P7MProcessor()
             fattura_parser = FatturaParser()
+            pdf_gen = PDFGenerator()
             results = []
+            fatture_for_download = []
             
             for zip_file in file_list:
                 if zf.getinfo(zip_file).file_size > MAX_FILE_SIZE:
@@ -230,6 +306,12 @@ async def process_zip_batch(content: bytes, filename: str):
                         fattura_data = fattura_parser.parse(result['payload'])
                         if fattura_data:
                             item['fattura'] = fattura_data
+                            pdf_bytes = pdf_gen.generate_invoice_pdf(fattura_data, result['payload'])
+                            fatture_for_download.append({
+                                'fattura_data': fattura_data,
+                                'pdf_bytes': pdf_bytes,
+                                'xml_payload': result['payload']
+                            })
                     
                     results.append(item)
                 else:
@@ -242,14 +324,27 @@ async def process_zip_batch(content: bytes, filename: str):
             success_count = sum(1 for r in results if r['success'])
             fatture_count = sum(1 for r in results if r['success'] and 'fattura' in r)
             
-            return JSONResponse(content={
+            download_id = None
+            if fatture_for_download:
+                temp_data = {
+                    'type': 'batch',
+                    'fatture': fatture_for_download
+                }
+                download_id = save_temp_data(temp_data)
+            
+            response = {
                 "success": True,
                 "batch": True,
                 "total_files": len(results),
                 "success_count": success_count,
                 "fatture_count": fatture_count,
                 "results": results
-            })
+            }
+            
+            if download_id:
+                response['download_id'] = download_id
+            
+            return JSONResponse(content=response)
             
     except zipfile.BadZipFile:
         raise HTTPException(status_code=400, detail="File ZIP non valido.")
@@ -257,12 +352,78 @@ async def process_zip_batch(content: bytes, filename: str):
         raise HTTPException(status_code=500, detail=f"Errore durante l'elaborazione: {str(e)}")
 
 
-@app.post("/api/download/{type}")
+@app.get("/api/download/{download_type}")
 async def download_file(
-    type: str,
-    request: Request
+    download_type: str,
+    download_id: str = Query(..., description="ID del download")
 ):
-    pass
+    """
+    Scarica file elaborati.
+    
+    - download_type='pdf': Scarica il PDF della fattura singola
+    - download_type='xml': Scarica l'XML estratto dalla firma
+    - download_type='batch': Scarica ZIP con PDF di tutte le fatture + Excel riepilogo
+    """
+    temp_data = load_temp_data(download_id)
+    if not temp_data:
+        raise HTTPException(status_code=404, detail="Download non trovato o scaduto.")
+    
+    if download_type == 'pdf':
+        if temp_data['type'] == 'single':
+            fattura_data = temp_data['fattura_data']
+            pdf_bytes = temp_data['pdf_bytes']
+            filename = generate_invoice_filename(fattura_data)
+            
+            return StreamingResponse(
+                io.BytesIO(pdf_bytes),
+                media_type='application/pdf',
+                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+            )
+        else:
+            raise HTTPException(status_code=400, detail="Questo download non è un PDF singolo.")
+    
+    elif download_type == 'xml':
+        if temp_data['type'] in ['single', 'single_xml']:
+            xml_payload = temp_data['xml_payload']
+            filename = temp_data['filename']
+            
+            return StreamingResponse(
+                io.BytesIO(xml_payload),
+                media_type='application/xml',
+                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+            )
+        else:
+            raise HTTPException(status_code=400, detail="Questo download non è un XML singolo.")
+    
+    elif download_type == 'batch':
+        if temp_data['type'] == 'batch':
+            fatture = temp_data['fatture']
+            
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for idx, fattura_item in enumerate(fatture):
+                    fattura_data = fattura_item['fattura_data']
+                    pdf_bytes = fattura_item['pdf_bytes']
+                    filename = generate_invoice_filename(fattura_data)
+                    zf.writestr(f"pdf/{filename}", pdf_bytes)
+                
+                excel_gen = ExcelGenerator()
+                excel_bytes = excel_gen.generate_summary([f['fattura_data'] for f in fatture])
+                zf.writestr("Riepilogo_Fatture.xlsx", excel_bytes)
+            
+            zip_buffer.seek(0)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            
+            return StreamingResponse(
+                zip_buffer,
+                media_type='application/zip',
+                headers={'Content-Disposition': f'attachment; filename="Fatture_{timestamp}.zip"'}
+            )
+        else:
+            raise HTTPException(status_code=400, detail="Questo download non è un batch.")
+    
+    else:
+        raise HTTPException(status_code=400, detail="Tipo di download non valido.")
 
 
 async def verify_turnstile(token: str, remote_ip: str) -> bool:
