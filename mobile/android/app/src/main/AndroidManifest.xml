@@ -32,23 +32,32 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:mimeType="application/pkcs7-mime" />
                 <data android:mimeType="application/x-pkcs7-mime" />
+                <data android:mimeType="application/pkcs7-signature" />
+                <data android:mimeType="application/x-pkcs7-signature" />
                 <data android:mimeType="application/octet-stream" />
                 <data android:mimeType="application/pdf" />
             </intent-filter>
+            <!-- File .p7m senza tipo MIME riconosciuto: alcuni gestori file passano solo il nome. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="file" />
                 <data android:scheme="content" />
-                <data android:pathPattern=".*\\.p7m" />
+                <data android:scheme="file" />
+                <data android:host="*" />
                 <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.p7m" />
+                <data android:pathPattern=".*\\..*\\.p7m" />
+                <data android:pathPattern=".*\\.P7M" />
+                <data android:pathPattern=".*\\..*\\.P7M" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/pkcs7-mime" />
                 <data android:mimeType="application/x-pkcs7-mime" />
+                <data android:mimeType="application/pkcs7-signature" />
+                <data android:mimeType="application/x-pkcs7-signature" />
                 <data android:mimeType="application/octet-stream" />
                 <data android:mimeType="application/pdf" />
             </intent-filter>
