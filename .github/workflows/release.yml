@@ -76,10 +76,11 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
-          $version = $tag.TrimStart('v')
+          $title = ((Get-Content RELEASE_NOTES.md -TotalCount 1) -replace '^#+\s*', '').Trim()
+          if (-not $title) { $title = "P7M Viewer PA $($tag.TrimStart('v'))" }
           gh release create $tag `
             --repo "${{ github.repository }}" `
-            --title "P7M Viewer PA $version - PAdES, XAdES e ASiC" `
+            --title $title `
             --notes-file RELEASE_NOTES.md `
             --latest `
             dist\P7MViewer_Setup.exe `

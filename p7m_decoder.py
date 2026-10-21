@@ -5,6 +5,8 @@ import hashlib
 from datetime import datetime
 from typing import Dict, Any, Tuple, Optional
 
+from services.office_text import detect_office_type
+
 try:
     from asn1crypto import cms, x509, core
     HAS_ASN1CRYPTO = True
@@ -245,7 +247,8 @@ class P7MDecoder:
             inner_name = f"estratto{ext}"
         
         known_extensions = {'.pdf', '.xml', '.png', '.jpg', '.jpeg', '.gif', 
-                           '.docx', '.xlsx', '.zip', '.json', '.html', '.txt', '.bin'}
+                           '.docx', '.xlsx', '.zip', '.json', '.html', '.txt', '.bin',
+                           '.doc', '.xls', '.ppt', '.pptx', '.rtf', '.odt', '.ods', '.odp'}
         
         inner_lower = inner_name.lower()
         has_known_ext = any(inner_lower.endswith(known_ext) for known_ext in known_extensions)
@@ -699,6 +702,11 @@ class P7MDecoder:
         # GIF check
         if payload.startswith(b'GIF87a') or payload.startswith(b'GIF89a'):
             return 'image/gif', '.gif'
+
+        # Word/Excel/PowerPoint 97-2003 (OLE2), OpenDocument and RTF
+        office = detect_office_type(payload)
+        if office:
+            return office
 
         # ZIP / DOCX / XLSX check
         if payload.startswith(b'PK\x03\x04'):

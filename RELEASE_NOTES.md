@@ -1,22 +1,22 @@
-## P7M Viewer PA 2.2.0
+## P7M Viewer PA 2.3.0 - Documenti Word
 
-Verifica le firme PAdES, XAdES e ASiC insieme alle buste CAdES già supportate.
+Apre e mostra i documenti Word firmati, compresi i vecchi `.doc` (Word 97-2003).
 
-- **PAdES:** controlla la firma CMS sul ByteRange quando il SubFilter è `adbe.pkcs7.detached` o `ETSI.CAdES.detached` e il range copre l'intero PDF. Un indizio senza CMS resta non verificato.
-- **XAdES / XML-DSig:** verifica firma, impronte dei riferimenti e, se presente, l'impronta del certificato. XPath, XSLT e riferimenti HTTP non sono accettati.
-- **ASiC-S / ASiC-E:** apre il contenitore, verifica la firma CAdES detached o XAdES e, nel profilo E, le impronte del manifest.
-- **CAdES detached (`.p7s`):** usa il documento omonimo nella stessa cartella oppure quello selezionato.
+- **Word 97-2003 (`.doc`):** il documento estratto viene riconosciuto e salvato con l'estensione `.doc` e non più come `.bin`. Il testo è mostrato direttamente nell'app.
+- **Word `.docx` e OpenDocument `.odt`:** anteprima del testo nell'app.
+- **Altri formati Office:** `.xls`, `.ppt`, `.rtf`, `.ods` e `.odp` vengono riconosciuti e salvati con l'estensione corretta.
+- **Apri con app predefinita:** nuovo pulsante nella barra in alto, sempre disponibile. Apre il documento estratto con il programma installato sul PC (Word, LibreOffice, Acrobat…) per vedere impaginazione e immagini.
 
 ### Download
 
 - **P7MViewer_Setup.exe**: installer per utente Windows. È il pacchetto che il controllo aggiornamenti scarica all'avvio.
-- **P7MViewer_Portable_v2.2.0.zip**: estrarre tutta la cartella e avviare P7MViewer.exe.
+- **P7MViewer_Portable_v2.3.0.zip**: estrarre tutta la cartella e avviare P7MViewer.exe.
 - **SHA256SUMS.txt**: impronte dei pacchetti.
 
 ### Limiti espliciti
 
-Qualifica eIDAS non verificata; revoca storica TSA e revoca degli intermedi non accertate. OCSP/CRL non supportati o non autenticabili restano sconosciuti. Non è una validazione completa eIDAS.
+L'anteprima mostra solo il testo: impaginazione, immagini e oggetti incorporati restano visibili con il programma predefinito. Documenti Word cifrati con password non hanno anteprima. Qualifica eIDAS non verificata; non è una validazione completa eIDAS.
 
 ### Verifica
 
-Test di PAdES, XAdES, ASiC-S/E e firme detached, insieme alla suite di estrazione, sicurezza e validazione. Compilazione Windows x64 pubblicata su GitHub Releases.
+Test del lettore `.doc` (testo compresso e Unicode, codici di campo, mini stream, file danneggiati o cifrati), di `.docx`, `.odt` e del riconoscimento dei formati Office, insieme alla suite di firme, sicurezza e validazione già esistente.

@@ -30,8 +30,9 @@ except ImportError:
     HAS_QTPDF = False
 
 from p7m_decoder import P7MDecoder
+from services.office_text import extract_text
 
-APP_VERSION = "2.2.0"
+APP_VERSION = "2.3.0"
 GITHUB_REPO = "vincenzocuria/P7m_Gratis"
 
 
@@ -587,6 +588,14 @@ class P7MViewerWindow(QMainWindow):
         self.btn_export.setEnabled(False)
         self.btn_export.clicked.connect(self.export_payload)
 
+        # Always available, so the preview never replaces the user's own program.
+        self.btn_open_external = QPushButton("🚀 Apri con app predefinita")
+        self.btn_open_external.setObjectName("SecondaryBtn")
+        self.btn_open_external.setCursor(Qt.PointingHandCursor)
+        self.btn_open_external.setEnabled(False)
+        self.btn_open_external.setToolTip("Apre il documento estratto con il programma predefinito di Windows (es. Word, LibreOffice, Acrobat)")
+        self.btn_open_external.clicked.connect(self.open_payload_externally)
+
         self.btn_print = QPushButton("🖨️ Stampa")
         self.btn_print.setObjectName("SecondaryBtn")
         self.btn_print.setCursor(Qt.PointingHandCursor)
@@ -617,6 +626,7 @@ class P7MViewerWindow(QMainWindow):
         top_layout.addWidget(sep)
         top_layout.addWidget(btn_open)
         top_layout.addWidget(self.btn_export)
+        top_layout.addWidget(self.btn_open_external)
         top_layout.addWidget(self.btn_print)
         top_layout.addStretch()
         top_layout.addWidget(self.btn_theme_quick)
@@ -1127,6 +1137,7 @@ class P7MViewerWindow(QMainWindow):
         self._latest_load = filepath
         self.current_data = None
         self.btn_export.setEnabled(False)
+        self.btn_open_external.setEnabled(False)
         self.act_export.setEnabled(False)
         worker = DecodeThread(filepath, detached_path, self)
         self._load_threads.append(worker)
@@ -1161,6 +1172,7 @@ class P7MViewerWindow(QMainWindow):
         self.add_recent_file(filepath)
 
         self.btn_export.setEnabled(True)
+        self.btn_open_external.setEnabled(True)
         self.act_export.setEnabled(True)
 
         signer = res["signer_info"]
@@ -1256,6 +1268,8 @@ class P7MViewerWindow(QMainWindow):
             self._render_image(payload)
         elif mime in ("text/plain", "application/json", "text/html") or mime.startswith("text/"):
             self._render_text(payload, mime)
+        elif res["ext"] in (".doc", ".docx", ".odt"):
+            self._render_office(res)
         else:
             self._render_binary(res)
 
@@ -1403,6 +1417,17 @@ class P7MViewerWindow(QMainWindow):
         pixmap.loadFromData(payload)
         self.img_label.setPixmap(pixmap)
         self.view_stack.setCurrentWidget(self.img_page)
+
+    def _render_office(self, res: Dict[str, Any]):
+        text = extract_text(res["payload"], res["ext"])
+        if not text:
+            self._render_binary(res)
+            return
+        self.txt_edit.setPlainText(
+            "[Anteprima del solo testo. Per impaginazione e immagini usa "
+            "\"Apri con app predefinita\" (Word, LibreOffice…).]\n\n" + text
+        )
+        self.view_stack.setCurrentWidget(self.txt_page)
 
     def _render_binary(self, res: Dict[str, Any]):
         self.lbl_binary_info.setText(
@@ -1553,7 +1578,7 @@ class P7MViewerWindow(QMainWindow):
             "<p><b>Sviluppato da:</b> <a href='https://vcuria.app'>Vincenzo Curia (vcuria.app)</a></p>"
             "<p><b>Repository GitHub:</b> <a href='https://github.com/vincenzocuria/P7m_Gratis'>https://github.com/vincenzocuria/P7m_Gratis</a></p>"
             "<hr>"
-            "<p><b>Funzionalità:</b> Interfaccia Material Design 3 Expressive, Supporto Temi Chiaro/Scuro/Automatico, Gestione File Recenti, Verifica CAdES/PAdES/XAdES/ASiC, Controllo Aggiornamenti, anteprima PDF vettoriale, XML formattato ad albero, testi ed immagini.</p>"
+            "<p><b>Funzionalità:</b> Interfaccia Material Design 3 Expressive, Supporto Temi Chiaro/Scuro/Automatico, Gestione File Recenti, Verifica CAdES/PAdES/XAdES/ASiC, Controllo Aggiornamenti, anteprima PDF vettoriale, XML formattato ad albero, testo dei documenti Word (.doc, .docx) e OpenDocument, testi ed immagini.</p>"
             "<p style='color: #fbbf24;'><b>Nota Legale:</b> Strumento a solo scopo informativo ed estrattivo del contenuto. Non costituisce né sostituisce una verifica di validità legale formale (verificare CRL/OCSP presso le CA accreditate AgID).</p>"
         )
         QMessageBox.about(self, "Informazioni su P7M Viewer PA", msg)
