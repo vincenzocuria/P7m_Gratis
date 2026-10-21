@@ -5,6 +5,7 @@ import 'package:pkcs7/pkcs7.dart' show X509;
 import 'package:pointycastle/export.dart';
 import 'package:pointycastle/asn1.dart';
 
+import 'office_preview.dart' show isOle2, oleExtension;
 import 'pades.dart';
 
 class SignerResult {
@@ -602,6 +603,9 @@ String documentName(String name, Uint8List bytes) {
     if (!RegExp(r'\.jpe?g$', caseSensitive: false).hasMatch(name)) {
       name += '.jpg';
     }
+  } else if (isOle2(bytes)) {
+    // Word 97-2003 and other Office files in a Compound File container.
+    if (!name.contains('.')) name += '.${oleExtension(bytes) ?? 'doc'}';
   } else if (!name.contains('.')) {
     name += '.bin';
   }
