@@ -1,5 +1,5 @@
 # Informativa privacy — P7M Gratis
-Aggiornamento: 3 ottobre 2026 · Versione 1.2.0
+Aggiornamento: 21 ottobre 2026 · Versione 1.3.0
 
 1. Sviluppatore e contatto
 P7M Gratis è sviluppata da Vincenzo Curia. Per assistenza, domande sulla privacy ed esercizio dei diritti: support@vcuria.app. Sito: https://vcuria.app/.
