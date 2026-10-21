@@ -163,7 +163,10 @@ def word97_text(payload: bytes) -> str:
     clx = table[fc_clx:fc_clx + lcb_clx]
     pos = 0
     while pos < len(clx) and clx[pos] == 0x01:  # skip Prc (property modifiers)
-        pos += 3 + struct.unpack_from("<h", clx, pos + 1)[0]
+        size = struct.unpack_from("<h", clx, pos + 1)[0]
+        if size < 0:
+            raise ValueError("Tabella dei pezzi non valida")
+        pos += 3 + size
     if pos >= len(clx) or clx[pos] != 0x02:
         raise ValueError("Tabella dei pezzi assente")
     lcb = struct.unpack_from("<I", clx, pos + 1)[0]

@@ -2,6 +2,7 @@ import io
 import os
 import struct
 import tempfile
+import threading
 import unittest
 import zipfile
 from datetime import datetime, timedelta, timezone
@@ -84,7 +85,7 @@ def compound_file(streams):
     return out
 
 
-def word97(flags=0x0200):
+def word97(flags=0x0200, prc_size=2):
     """Word 97 document: a cp1252 piece, a UTF-16 piece with a field, then hidden text."""
     first = "Comune di prova – è\r"
     second = "Campo: \x13 PAGE \x141\x15 fine €\r"
@@ -99,7 +100,7 @@ def word97(flags=0x0200):
     cps = [0, len(first), len(first) + len(second), len(first) + len(second) + len(hidden)]
     fcs = [(0x800 * 2) | 0x40000000, 0x900, (0xA00 * 2) | 0x40000000]
     plc = struct.pack("<4I", *cps) + b"".join(struct.pack("<HIH", 0, fc, 0) for fc in fcs)
-    clx = b"\x01" + struct.pack("<h", 2) + b"\0\0" + b"\x02" + struct.pack("<I", len(plc)) + plc
+    clx = b"\x01" + struct.pack("<h", prc_size) + b"\0\0" + b"\x02" + struct.pack("<I", len(plc)) + plc
     table = b"\0" * 16 + clx
     struct.pack_into("<II", word, 0x1A2, 16, len(clx))
     return compound_file({"WordDocument": bytes(word), "1Table": table})
@@ -135,6 +136,16 @@ class OfficeDocumentTests(unittest.TestCase):
         damaged = bytearray(word97())
         damaged[0x30:0x34] = b"\xff\xff\xff\x7f"
         self.assertIsNone(extract_text(bytes(damaged), ".doc"))
+
+    def test_negative_prc_size_gives_no_preview_without_hanging(self):
+        # A negative Prc size would make the CLX scan stand still or go back forever.
+        result = []
+        worker = threading.Thread(
+            target=lambda: result.append(extract_text(word97(prc_size=-3), ".doc")), daemon=True)
+        worker.start()
+        worker.join(5)
+        self.assertFalse(worker.is_alive(), "word97_text non termina con un Prc negativo")
+        self.assertEqual(result, [None])
 
     def test_p7m_with_doc_keeps_extension_and_verifies(self):
         envelope = signed(word97())
