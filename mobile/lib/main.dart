@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'core/certificate_service.dart';
+import 'core/office_preview.dart';
 import 'core/revocation.dart';
 import 'core/timestamp.dart';
 
@@ -44,6 +45,8 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   static const channel = MethodChannel('app.vcuria.p7m/files');
   P7mDocument? doc;
+  // Text preview of a Word/ODF document, computed once per document.
+  Future<String?>? officePreview;
   bool busy = false;
   bool exporting = false;
   late final Future<void> startupCleanup;
@@ -95,6 +98,10 @@ class _HomeState extends State<Home> {
     final id = ++generation;
     setState(() {
       doc = document;
+      officePreview =
+          officeExtensions.contains(document.name.toLowerCase().split('.').last)
+          ? compute(officeText, document.bytes)
+          : null;
       assessments = List.filled(document.signers.length, null);
       timestampDetails = List.filled(
         document.signers.length,
@@ -541,16 +548,17 @@ class _HomeState extends State<Home> {
               ),
             )
           : DefaultTabController(
-              length: d.isPlainPdf ? 1 : 2,
+              length: showSignatures(d) ? 2 : 1,
               child: Column(
                 children: [
                   DocumentHeader(
                     name: d.name,
                     isPlainPdf: d.isPlainPdf,
+                    signatureCount: d.signers.length,
                     onSave: exporting ? null : () => export(false),
                     onShare: exporting ? null : () => export(true),
                   ),
-                  if (!d.isPlainPdf)
+                  if (showSignatures(d))
                     const TabBar(
                       tabs: [
                         Tab(text: 'Documento'),
@@ -561,7 +569,7 @@ class _HomeState extends State<Home> {
                     child: TabBarView(
                       children: [
                         preview(d),
-                        if (!d.isPlainPdf)
+                        if (showSignatures(d))
                           ListView(
                             padding: const EdgeInsets.all(16),
                             children: [
@@ -625,7 +633,7 @@ class _HomeState extends State<Home> {
                                     ),
                                     title: Text(s.name),
                                     subtitle: Text(
-                                      '${s.detail}\n${timestampDetails[index]}\n${assessments[index]?.detail ?? 'Controllo certificato…'}\n${assessments[index]?.revocationDetail ?? 'Revoca non verificata'}\nScadenza certificato: ${s.expires?.toIso8601String().split('T').first ?? 'non disponibile'}',
+                                      '${s.role.isEmpty ? '' : '${s.role}\n'}${s.detail}\n${timestampDetails[index]}\n${assessments[index]?.detail ?? 'Controllo certificato…'}\n${assessments[index]?.revocationDetail ?? 'Revoca non verificata'}\nScadenza certificato: ${s.expires?.toIso8601String().split('T').first ?? 'non disponibile'}',
                                     ),
                                   ),
                                 ),
@@ -639,6 +647,8 @@ class _HomeState extends State<Home> {
             ),
     );
   }
+
+  bool showSignatures(P7mDocument d) => !d.isPlainPdf || d.signers.isNotEmpty;
 
   Widget preview(P7mDocument d) {
     if (d.bytes.length >= 5 &&
@@ -655,6 +665,38 @@ class _HomeState extends State<Home> {
             errorBuilder: (_, _, _) => const Text('Anteprima non disponibile'),
           ),
         ),
+      );
+    }
+    if (officeExtensions.contains(ext) && officePreview != null) {
+      return FutureBuilder<String?>(
+        future: officePreview,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final text = snapshot.data;
+          if (text == null) {
+            return const Center(
+              child: Text('Salva o condividi il documento per aprirlo.'),
+            );
+          }
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    'Anteprima del solo testo. Per vedere impaginazione e immagini salva o condividi il documento.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SelectableText(text),
+            ],
+          );
+        },
       );
     }
     if (['txt', 'xml', 'csv', 'json'].contains(ext)) {
@@ -677,20 +719,24 @@ class DocumentHeader extends StatelessWidget {
     super.key,
     required this.name,
     required this.isPlainPdf,
+    this.signatureCount = 0,
     required this.onSave,
     required this.onShare,
   });
 
   final String name;
   final bool isPlainPdf;
+  final int signatureCount;
   final VoidCallback? onSave;
   final VoidCallback? onShare;
 
   @override
   Widget build(BuildContext context) {
-    final type = isPlainPdf
-        ? 'PDF semplice • non è una busta P7M'
-        : 'P7M • documento estratto';
+    final type = !isPlainPdf
+        ? 'P7M • documento estratto'
+        : signatureCount > 0
+        ? 'PDF firmato (PAdES)'
+        : 'PDF semplice • nessuna firma';
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 4),
       child: Row(
@@ -712,8 +758,10 @@ class DocumentHeader extends StatelessWidget {
                       Text(type),
                       if (isPlainPdf) ...[
                         const SizedBox(height: 12),
-                        const Text(
-                          'Lettura PDF. Eventuali firme interne al PDF (PAdES) non vengono verificate.',
+                        Text(
+                          signatureCount > 0
+                              ? 'Le firme interne al PDF sono verificate nella scheda Firme.'
+                              : 'Nel PDF non sono state trovate firme digitali.',
                         ),
                       ],
                     ],

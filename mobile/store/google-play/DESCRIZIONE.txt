@@ -15,7 +15,7 @@ Gratuita, senza pubblicità, senza account e senza abbonamenti. Apertura, estraz
 
 Il controllo della revoca online, solo dopo tua conferma, contatta gli emittenti e trasmette l’indirizzo IP e gli identificativi dei certificati. Alcuni servizi usano HTTP. È possibile usare l’app senza effettuare questo controllo.
 
-I PDF semplici sono indicati chiaramente e non vengono trattati come buste P7M. Le eventuali firme interne ai PDF (PAdES) non vengono verificate.
+I PDF semplici sono indicati chiaramente e non vengono trattati come buste P7M. Verifica anche le firme interne ai PDF (PAdES), le controfirme e i P7M salvati come testo Base64. Per i documenti Word mostra un'anteprima del testo.
 
 Le verifiche mostrate non costituiscono un servizio di validazione qualificato né una certificazione della validità legale complessiva della firma. Qualificazione eIDAS e validità storica completa non sono accertate. Un esito non accertato segnala che non è stato possibile completare la verifica.
 

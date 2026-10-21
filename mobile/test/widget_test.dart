@@ -64,7 +64,10 @@ void main() {
       await tester.tap(find.text(name));
       await tester.pumpAndSettle();
       expect(find.byType(SelectableText), findsOneWidget);
-      expect(find.textContaining('PAdES'), findsOneWidget);
+      expect(
+        find.textContaining('non sono state trovate firme'),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Chiudi'));
       await tester.pumpAndSettle();
     }

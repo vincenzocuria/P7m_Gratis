@@ -22,12 +22,12 @@ class HelpPage extends StatelessWidget {
         _HelpCard(
           Icons.description_outlined,
           '2. Leggi ed esporta',
-          'Il tipo è sempre indicato: PDF semplice oppure documento estratto da P7M. Tocca il nome per leggerlo completo. Nei PDF usa due dita per ingrandire e scorri per cambiare pagina. Salva crea una copia; Condividi la invia all’app che scegli.',
+          'Il tipo è sempre indicato: PDF semplice, PDF firmato oppure documento estratto da P7M. Dei documenti Word viene mostrato il testo. Tocca il nome per leggerlo completo. Nei PDF usa due dita per ingrandire e scorri per cambiare pagina. Salva crea una copia; Condividi la invia all’app che scegli.',
         ),
         _HelpCard(
           Icons.verified_user_outlined,
           '3. Comprendi le firme',
-          'La scheda Firme compare per i P7M. Integrità indica se il contenuto corrisponde alla firma; il certificato viene controllato con le radici del telefono. Non accertata significa che mancano elementi per concludere: non equivale automaticamente a una firma falsa.',
+          'La scheda Firme compare per i P7M e per i PDF firmati (PAdES), con le eventuali controfirme. Integrità indica se il contenuto corrisponde alla firma; il certificato viene controllato con le radici del telefono. Non accertata significa che mancano elementi per concludere: non equivale automaticamente a una firma falsa.',
         ),
         _HelpCard(
           Icons.wifi,
@@ -37,7 +37,7 @@ class HelpPage extends StatelessWidget {
         _HelpCard(
           Icons.info_outline,
           'Cosa non viene certificato',
-          'Le firme interne ai PDF (PAdES) non vengono verificate. Qualificazione eIDAS e validità storica complessiva non sono accertate. Per decisioni con effetti legali usa anche un servizio di validazione appropriato.',
+          'Qualificazione eIDAS e validità storica complessiva non sono accertate. Per decisioni con effetti legali usa anche un servizio di validazione appropriato.',
         ),
         _HelpCard(
           Icons.cleaning_services_outlined,

@@ -28,7 +28,7 @@ Per questo trattamento lo sviluppatore opera come titolare; la base giuridica è
 Puoi chiedere informazioni, accesso, rettifica, cancellazione, limitazione, opposizione e portabilità nei casi previsti dal GDPR, scrivendo al contatto indicato. Puoi presentare reclamo al Garante per la protezione dei dati personali: https://www.garanteprivacy.it/. Non possiamo recuperare o cancellare documenti che non riceviamo, né dati conservati autonomamente dagli emittenti o da altre app: per questi rivolgiti ai relativi soggetti.
 
 7. Limiti delle verifiche
-P7M Gratis distingue integrità, catena dei certificati, revoca e marca temporale. Non è un servizio di validazione qualificato e non certifica la validità legale complessiva, la qualificazione eIDAS o la validità storica completa. I PDF semplici sono leggibili, ma le eventuali firme interne PAdES non vengono verificate.
+P7M Gratis distingue integrità, catena dei certificati, revoca e marca temporale. Non è un servizio di validazione qualificato e non certifica la validità legale complessiva, la qualificazione eIDAS o la validità storica completa. Verifica anche controfirme e firme interne ai PDF (PAdES), sempre sul dispositivo.
 
 8. Modifiche
 L'informativa viene aggiornata se cambiano funzionalità o trattamento dei dati. La versione inclusa nell'app resta consultabile offline; quella pubblica riporta la data dell'ultimo aggiornamento.

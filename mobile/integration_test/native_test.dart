@@ -79,7 +79,7 @@ void main() {
     await state.receive({'bytes': pdfBytes, 'name': 'documento.pdf'});
     await tester.pumpAndSettle();
     expect(state.doc.isPlainPdf, true);
-    expect(find.text('PDF semplice • non è una busta P7M'), findsOneWidget);
+    expect(find.text('PDF semplice • nessuna firma'), findsOneWidget);
     expect(find.text('Firme'), findsNothing);
     expect(find.text('Controlla revoca online'), findsNothing);
     await tester.runAsync(
@@ -130,7 +130,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(state.busy, false);
-    expect(find.text('Documento chiuso e copie temporanee cancellate'), findsOneWidget);
+    expect(
+      find.text('Documento chiuso e copie temporanee cancellate'),
+      findsOneWidget,
+    );
     expect(find.byType(PdfViewer), findsNothing);
     expect(find.text('Apri un P7M o PDF'), findsOneWidget);
   });

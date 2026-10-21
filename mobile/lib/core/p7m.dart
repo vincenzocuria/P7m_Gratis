@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:pkcs7/pkcs7.dart' show X509;
 import 'package:pointycastle/export.dart';
 import 'package:pointycastle/asn1.dart';
+
+import 'pades.dart';
 
 class SignerResult {
   final String name, detail;
@@ -12,6 +15,9 @@ class SignerResult {
   final List<Uint8List> certificates;
   final List<Uint8List> timestampTokens;
   final Uint8List? signatureBytes;
+
+  /// Kind of signature, e.g. countersignature or signature inside the PDF.
+  final String role;
   const SignerResult(
     this.name,
     this.integrity,
@@ -21,7 +27,21 @@ class SignerResult {
     this.certificates = const [],
     this.timestampTokens = const [],
     this.signatureBytes,
+    this.role = '',
   ]);
+
+  SignerResult copyWith({bool? integrity, String? detail, String? role}) =>
+      SignerResult(
+        name,
+        integrity ?? this.integrity,
+        detail ?? this.detail,
+        expires,
+        certificate,
+        certificates,
+        timestampTokens,
+        signatureBytes,
+        role ?? this.role,
+      );
 }
 
 class P7mDocument {
@@ -42,15 +62,119 @@ P7mDocument decodeDocument((Uint8List, String) input) {
     throw const FormatException('Limite di 50 MB superato');
   }
   final bytes = input.$1;
-  if (bytes.length >= 8 &&
-      same(bytes.sublist(0, 5), [0x25, 0x50, 0x44, 0x46, 0x2d])) {
+  if (isPdf(bytes)) {
     final name = input.$2
         .split(RegExp(r'[/\\]'))
         .last
         .replaceAll(RegExp(r'[\x00-\x1f]'), '_');
-    return P7mDocument(bytes, name, const [], isPlainPdf: true);
+    return P7mDocument(bytes, name, verifyPades(bytes), isPlainPdf: true);
   }
-  return decodeP7m(input);
+  final document = decodeP7m(input);
+  if (!isPdf(document.bytes)) return document;
+  final pades = verifyPades(document.bytes);
+  if (pades.isEmpty) return document;
+  // CAdES envelope around a PDF that also carries PAdES signatures.
+  return P7mDocument(document.bytes, document.name, [
+    ...document.signers,
+    ...pades.map((s) => s.copyWith(role: '${s.role} (PDF estratto)')),
+  ]);
+}
+
+bool isPdf(Uint8List bytes) =>
+    bytes.length >= 8 &&
+    same(bytes.sublist(0, 5), [0x25, 0x50, 0x44, 0x46, 0x2d]);
+
+/// P7M saved as Base64 text, with or without PEM armour, decoded to DER.
+Uint8List unwrapBase64(Uint8List bytes) {
+  if (bytes.isEmpty || bytes.first == 0x30) return bytes;
+  try {
+    final text = latin1
+        .decode(bytes)
+        .split(RegExp(r'\r?\n'))
+        .where((line) => !line.trimLeft().startsWith('-----'))
+        .join()
+        .replaceAll(RegExp(r'\s'), '')
+        .replaceAll('-', '+')
+        .replaceAll('_', '/');
+    if (text.length < 16 || !RegExp(r'^[A-Za-z0-9+/]+=*$').hasMatch(text)) {
+      return bytes;
+    }
+    final decoded = base64.decode(base64.normalize(text));
+    return decoded.isNotEmpty && decoded.first == 0x30 ? decoded : bytes;
+  } catch (_) {
+    return bytes;
+  }
+}
+
+class SignedData {
+  final String contentType;
+  final Uint8List? content;
+  final List<X509> certificates;
+  final List<ASN1Sequence> signers;
+  const SignedData(
+    this.contentType,
+    this.content,
+    this.certificates,
+    this.signers,
+  );
+}
+
+SignedData parseSignedData(Uint8List bytes) {
+  checkAsn1Limits(bytes);
+  final parser = ASN1Parser(bytes);
+  final envelope = (parser.nextObject() as ASN1Sequence).elements!;
+  if (parser.hasNext() ||
+      envelope.length != 2 ||
+      oid(envelope.first) != '1.2.840.113549.1.7.2') {
+    throw const FormatException('Il file non è una busta CMS SignedData');
+  }
+  final sd = (children(envelope[1]).single as ASN1Sequence).elements!;
+  final content = (sd[2] as ASN1Sequence).elements!;
+  final certs = <X509>[];
+  for (final field in sd.skip(3)) {
+    if (field.tag == 0xa0) {
+      for (final c in children(field)) {
+        if (c is ASN1Sequence) {
+          try {
+            final cert = X509(c);
+            if (!certs.any((existing) => same(existing.der, cert.der))) {
+              certs.add(cert);
+            }
+          } catch (_) {
+            /* Report missing certificate below. */
+          }
+        }
+      }
+    }
+  }
+  final signers = (sd.last as ASN1Set).elements!;
+  if (signers.length > 100 || certs.length > 100) {
+    throw const FormatException('Troppi firmatari o certificati');
+  }
+  return SignedData(
+    oid(content.first),
+    content.length == 2 ? octets(content[1]) : null,
+    certs,
+    signers.cast<ASN1Sequence>(),
+  );
+}
+
+/// Signer followed by its countersignatures, in document order.
+List<SignerResult> verifySignerTree(
+  ASN1Sequence signer,
+  List<X509> certs,
+  Uint8List payload,
+  String contentType,
+) {
+  final counters = <SignerResult>[];
+  final main = verifySigner(
+    signer,
+    certs,
+    payload,
+    contentType,
+    counters: counters,
+  );
+  return [main, ...counters];
 }
 
 List<ASN1Object> children(ASN1Object o) {
@@ -105,57 +229,29 @@ P7mDocument decodeP7m((Uint8List, String) input) {
       .last
       .replaceAll(RegExp(r'[\x00-\x1f]'), '_');
   final results = <SignerResult>[];
+  bytes = unwrapBase64(bytes);
   for (var depth = 0; depth < 8; depth++) {
-    checkAsn1Limits(bytes);
-    final parser = ASN1Parser(bytes);
-    final envelope = (parser.nextObject() as ASN1Sequence).elements!;
-    if (parser.hasNext() ||
-        envelope.length != 2 ||
-        oid(envelope.first) != '1.2.840.113549.1.7.2') {
-      throw const FormatException('Il file non è una busta CMS SignedData');
-    }
-    final sd = (children(envelope[1]).single as ASN1Sequence).elements!;
-    final content = (sd[2] as ASN1Sequence).elements!;
-    if (content.length != 2) {
+    final signed = parseSignedData(bytes);
+    final payload = signed.content;
+    if (payload == null) {
       throw const FormatException(
         'Firma separata: manca il documento originale',
       );
     }
-    final payload = octets(content[1]);
-    final certs = <X509>[];
-    for (final field in sd.skip(3)) {
-      if (field.tag == 0xa0) {
-        for (final c in children(field)) {
-          if (c is ASN1Sequence) {
-            try {
-              final cert = X509(c);
-              if (!certs.any((existing) => same(existing.der, cert.der))) {
-                certs.add(cert);
-              }
-            } catch (_) {
-              /* Report missing certificate below. */
-            }
-          }
-        }
-      }
-    }
-    final signers = (sd.last as ASN1Set).elements!;
-    if (signers.length > 100 || certs.length > 100) {
-      throw const FormatException('Troppi firmatari o certificati');
-    }
-    for (final signer in signers) {
-      results.add(
-        verifySigner(
-          signer as ASN1Sequence,
-          certs,
+    for (final signer in signed.signers) {
+      results.addAll(
+        verifySignerTree(
+          signer,
+          signed.certificates,
           payload,
-          oid(content.first),
+          signed.contentType,
         ),
       );
     }
-    bytes = payload;
+    bytes = isSignedData(payload) ? payload : unwrapBase64(payload);
     name = name.replaceFirst(RegExp(r'\.p7m$', caseSensitive: false), '');
     if (!isSignedData(bytes)) {
+      bytes = payload;
       name = name.replaceAll(RegExp(r'(\.p7m)+$', caseSensitive: false), '');
       return P7mDocument(bytes, documentName(name, bytes), results);
     }
@@ -163,12 +259,17 @@ P7mDocument decodeP7m((Uint8List, String) input) {
   throw const FormatException('Troppe buste P7M annidate');
 }
 
+/// [counters] collects countersignatures (RFC 5652 §11.4), which sign the
+/// signature value of this signer instead of the document.
 SignerResult verifySigner(
   ASN1Sequence signer,
   List<X509> certs,
   Uint8List payload,
-  String contentType,
-) {
+  String contentType, {
+  bool counter = false,
+  List<SignerResult>? counters,
+  int depth = 0,
+}) {
   var name = 'Firmatario non identificato';
   DateTime? expiry;
   Uint8List? certificate;
@@ -188,6 +289,7 @@ SignerResult verifySigner(
     certs.map((c) => c.der).toList(),
     timestampTokens,
     signature,
+    counter ? 'Controfirma' : '',
   );
   try {
     final s = signer.elements!;
@@ -257,11 +359,15 @@ SignerResult verifySigner(
           types.addAll(values);
         }
       }
+      // A countersignature has no content type of its own.
+      final typeOk = counter
+          ? typeCount <= 1
+          : typeCount == 1 &&
+                types.length == 1 &&
+                oid(types.single) == contentType;
       if (digestCount != 1 ||
-          typeCount != 1 ||
+          !typeOk ||
           digests.length != 1 ||
-          types.length != 1 ||
-          oid(types.single) != contentType ||
           !same(octets(digests.single), Digest(hashName).process(payload))) {
         return result(
           name,
@@ -275,7 +381,7 @@ SignerResult verifySigner(
         return result(name, null, 'Attributi BER non supportati', expiry);
       }
       signed[0] = 0x31;
-    } else if (contentType != '1.2.840.113549.1.7.1') {
+    } else if (!counter && contentType != '1.2.840.113549.1.7.1') {
       return result(
         name,
         false,
@@ -287,10 +393,19 @@ SignerResult verifySigner(
     final sigAlg = algorithm(sigAlgorithm);
     final signatureBytes = octets(s[index]);
     signature = signatureBytes;
+    final counterSigners = <ASN1Sequence>[];
     for (final item in s.skip(index + 1)) {
       if (item.tag == 0xa1) {
         for (final attr in children(item)) {
           final fields = (attr as ASN1Sequence).elements!;
+          if (oid(fields.first) == '1.2.840.113549.1.9.6') {
+            for (final value in (fields[1] as ASN1Set).elements!) {
+              if (counterSigners.length >= 20 || depth >= 4) {
+                throw const FormatException('Troppe controfirme');
+              }
+              counterSigners.add(value as ASN1Sequence);
+            }
+          }
           if (oid(fields.first) == '1.2.840.113549.1.9.16.2.14') {
             for (final token in (fields[1] as ASN1Set).elements!) {
               if (timestampTokens.length >= 4) {
@@ -426,6 +541,22 @@ SignerResult verifySigner(
         'Algoritmo di firma non supportato: $sigAlg',
         expiry,
       );
+    }
+    if (counters != null) {
+      for (final counterSigner in counterSigners) {
+        final nested = <SignerResult>[];
+        final verified = verifySigner(
+          counterSigner,
+          certs,
+          signatureBytes,
+          contentType,
+          counter: true,
+          counters: nested,
+          depth: depth + 1,
+        );
+        counters.add(verified.copyWith(role: 'Controfirma di $name'));
+        counters.addAll(nested);
+      }
     }
     return result(
       name,
