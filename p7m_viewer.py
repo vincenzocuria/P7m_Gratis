@@ -32,7 +32,7 @@ except ImportError:
 from p7m_decoder import P7MDecoder
 from services.office_text import extract_text
 
-APP_VERSION = "2.3.0"
+APP_VERSION = "2.3.1"
 GITHUB_REPO = "vincenzocuria/P7m_Gratis"
 
 
