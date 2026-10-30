@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apri File P7M Online - Converti Fatture Elettroniche in PDF ed Excel</title>
+    <meta name="description" content="Strumento gratuito per aprire file .p7m online e convertire fatture elettroniche XML in PDF ed Excel. Verifica firma digitale CAdES. Nessun dato viene salvato.">
+    <meta name="keywords" content="p7m, aprire p7m, fattura elettronica, convertire p7m in pdf, fatture xml in excel, verifica firma digitale">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>P7M Viewer & Converter</h1>
+            <p class="subtitle">Apri file P7M e converti fatture elettroniche in PDF ed Excel</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="intro">
+            <h2>Apri online qualsiasi file .p7m</h2>
+            <p>Carica un file <strong>.p7m</strong> (anche fatture <strong>.xml.p7m</strong>) o uno <strong>ZIP di fatture</strong> 
+            scaricato dall'Agenzia delle Entrate. Il documento viene estratto, la firma digitale verificata, 
+            e per le fatture puoi scaricare PDF pronti per la stampa ed Excel per il commercialista.</p>
+            
+            <div class="privacy-badge">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+                <strong>Privacy garantita:</strong> I file caricati non vengono mai salvati. I risultati (PDF, Excel) restano disponibili per il download massimo 10 minuti, poi vengono cancellati. Dopo il primo download, cancellazione immediata.
+            </div>
+        </section>
+
+        <section class="upload-section">
+            <div class="upload-box" id="uploadBox">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <h3>Trascina qui il file .p7m o ZIP</h3>
+                <p>oppure</p>
+                <label for="fileInput" class="btn-primary">Scegli file</label>
+                <input type="file" id="fileInput" accept=".p7m,.p7s,.p7c,.zip" style="display: none;">
+                <p class="file-info">Massimo 10 MB per file singolo, 50 MB per ZIP con max 20 file</p>
+            </div>
+
+            <div id="turnstileWidget" style="display: none;"></div>
+
+            <div id="progressSection" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p id="progressText">Elaborazione in corso...</p>
+            </div>
+
+            <div id="resultSection" style="display: none;">
+                <div class="result-card">
+                    <h3>Risultato</h3>
+                    <div id="resultContent"></div>
+                </div>
+            </div>
+
+            <div id="errorSection" style="display: none;">
+                <div class="error-card">
+                    <h3>Errore</h3>
+                    <p id="errorText"></p>
+                </div>
+            </div>
+        </section>
+
+        <section class="features">
+            <h2>Cosa puoi fare</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>📄 Apri qualsiasi .p7m</h3>
+                    <p>Fatture XML, PDF firmati, documenti CAdES, buste annidate. Estrazione del contenuto originale garantita.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>✅ Verifica firma digitale</h3>
+                    <p>Controllo completo della firma CAdES: integrità, certificato, catena di fiducia, revoca (dove possibile).</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📊 Fatture in PDF ed Excel</h3>
+                    <p>Converti fatture elettroniche .xml.p7m in PDF leggibili e ottieni un riepilogo Excel con tutti i dati.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📦 Batch da ZIP</h3>
+                    <p>Carica lo ZIP scaricato dall'Agenzia delle Entrate e ottieni in un colpo PDF rinominati + Excel riepilogativo.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="download-section">
+            <h2>📱 Scarica per Desktop e Mobile</h2>
+            <p>Hai bisogno di aprire molti file P7M sul tuo computer o smartphone? Scarica l'app gratuita <strong>P7M Viewer</strong>!</p>
+            <a href="/download" class="btn-secondary">Vai alla pagina Download</a>
+        </section>
+
+        <section class="faq-preview">
+            <h2>Domande frequenti</h2>
+            <details>
+                <summary>Cosa sono i file .p7m?</summary>
+                <p>I file .p7m sono documenti firmati digitalmente con standard CAdES/PKCS#7. Vengono usati dalla Pubblica Amministrazione 
+                e dalle aziende per fatture elettroniche, determine, contratti e altri documenti ufficiali.</p>
+            </details>
+            <details>
+                <summary>I miei file vengono salvati?</summary>
+                <p>No, mai. Tutti i file vengono elaborati in memoria sul server e cancellati immediatamente dopo l'invio della risposta. 
+                Non conserviamo alcun dato. Leggi la nostra <a href="/privacy">informativa sulla privacy</a>.</p>
+            </details>
+            <details>
+                <summary>Posso convertire più file contemporaneamente?</summary>
+                <p>Sì! Carica un file ZIP contenente fino a 20 file .p7m (limite gratuito). Per batch più grandi, 
+                ti consigliamo di usare l'app desktop P7M Viewer.</p>
+            </details>
+            <a href="/faq" class="btn-secondary">Vedi tutte le FAQ</a>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Vincenzo Curia | <a href="/privacy">Privacy</a> | <a href="/faq">FAQ</a> | 
+            <a href="https://github.com/vincenzocuria/P7m_Gratis" target="_blank">GitHub</a></p>
+        </div>
+    </footer>
+
+    {% if turnstile_enabled %}
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    {% endif %}
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
