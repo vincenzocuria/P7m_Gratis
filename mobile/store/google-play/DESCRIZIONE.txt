@@ -1,8 +1,8 @@
-Nome: P7M Gratis
-Descrizione breve: Leggi PDF, apri ed estrai P7M. Verifiche sul dispositivo, gratis e senza account.
+Nome: P7M Viewer
+Descrizione breve: Leggi PDF, apri ed estrai P7M. Verifiche sul dispositivo, senza account.
 
 DESCRIZIONE COMPLETA
-P7M Gratis ti aiuta a leggere PDF e documenti contenuti nei file P7M direttamente sul telefono.
+P7M Viewer ti aiuta a leggere PDF e documenti contenuti nei file P7M direttamente sul telefono.
 
 • Apri un PDF semplice o una busta P7M, anche dagli allegati di altre app.
 • Estrai il contenuto dei P7M e visualizza PDF, immagini e documenti di testo.
@@ -11,7 +11,7 @@ P7M Gratis ti aiuta a leggere PDF e documenti contenuti nei file P7M direttament
 • Controlla facoltativamente online lo stato di revoca dei certificati.
 • Trova guida, privacy, assistenza e versione desktop Windows nel menu ?.
 
-Gratuita, senza pubblicità, senza account e senza abbonamenti. Apertura, estrazione e verifiche crittografiche sono eseguite sul dispositivo: il documento non viene caricato su un server dello sviluppatore.
+Senza pubblicità e senza account. Apertura, estrazione e verifiche crittografiche sono eseguite sul dispositivo: il documento non viene caricato su un server dello sviluppatore.
 
 Il controllo della revoca online, solo dopo tua conferma, contatta gli emittenti e trasmette l’indirizzo IP e gli identificativi dei certificati. Alcuni servizi usano HTTP. È possibile usare l’app senza effettuare questo controllo.
 

@@ -1,7 +1,7 @@
 BUILD DA PUBBLICARE
-P7M Gratis 1.2.0 (7)
+P7M Viewer 1.3.2 (11)
 Pacchetto: app.vcuria.p7m_gratis
-Carica solo P7M-Gratis-Android-1.2.0.aab nella nuova release. APK per prova diretta sul telefono.
+Carica solo P7M-Gratis-Android-1.3.2.aab nella nuova release. APK per prova diretta sul telefono.
 
 INFORMATIVA PRIVACY
 https://vincenzocuria.github.io/P7m_Gratis/privacy.html
@@ -36,7 +36,7 @@ Verificare anteprima scheda, schermate nuove e report pre-lancio del bundle. Ris
 La pubblicazione del file su GitHub non equivale all’approvazione di Google Play. L’informativa non sostituisce la valutazione degli obblighi dell’editore sui trattamenti effettivi di assistenza e sito.
 
 IDENTITÀ DELL’EDITORE E DISTRIBUZIONE UE
-In Play Console mantenere verificati nome legale, email e telefono dell’account e i recapiti pubblici richiesti per il proprio tipo di editore. Il nome dello sviluppatore pubblicato deve essere coerente con l’informativa; l’app è comunque identificata esplicitamente come P7M Gratis.
+In Play Console mantenere verificati nome legale, email e telefono dell’account e i recapiti pubblici richiesti per il proprio tipo di editore. Il nome dello sviluppatore pubblicato deve essere coerente con l’informativa; l’app è comunque identificata esplicitamente come P7M Viewer.
 Per la futura distribuzione App Store nell’UE, completare la dichiarazione DSA trader/non-trader e i contatti richiesti da Apple. Non dedurre automaticamente non-trader dal prezzo gratuito: anche finalità professionali o promozionali incidono sulla valutazione.
 Le dichiarazioni sulle leggi di esportazione devono essere rese dall’editore in base all’uso effettivo della crittografia; l’app include verifica di firme e connessioni HTTPS.
 Fonti: https://support.google.com/googleplay/android-developer/answer/10840893

@@ -27,7 +27,7 @@ class P7mApp extends StatelessWidget {
   const P7mApp({super.key});
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title: 'P7M Gratis',
+    title: 'P7M Viewer',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
       colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff14635c)),
@@ -391,7 +391,7 @@ class _HomeState extends State<Home> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         scrollable: true,
-        title: const Text('P7M Gratis'),
+        title: const Text('P7M Viewer'),
         content: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -404,7 +404,7 @@ class _HomeState extends State<Home> {
             const Text('Versione $appVersion'),
             const SizedBox(height: 12),
             const Text(
-              'PDF e documenti P7M in una sola app. Gratuita, senza pubblicità e senza account.',
+              'PDF e documenti P7M in una sola app, senza pubblicità e senza account.',
             ),
             const SizedBox(height: 16),
             TextButton.icon(
@@ -435,7 +435,7 @@ class _HomeState extends State<Home> {
             TextButton.icon(
               onPressed: () => showLicensePage(
                 context: context,
-                applicationName: 'P7M Gratis',
+                applicationName: 'P7M Viewer',
                 applicationVersion: appVersion,
                 applicationLegalese: 'Sviluppata da Vincenzo Curia',
               ),
@@ -490,7 +490,7 @@ class _HomeState extends State<Home> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'P7M Gratis',
+          'P7M Viewer',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
