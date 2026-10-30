@@ -1,8 +1,8 @@
-# Informativa privacy — P7M Gratis
-Aggiornamento: 21 ottobre 2026 · Versione 1.3.0
+# Informativa privacy — P7M Viewer
+Aggiornamento: 30 ottobre 2026 · Versione 1.3.2
 
 1. Sviluppatore e contatto
-P7M Gratis è sviluppata da Vincenzo Curia. Per assistenza, domande sulla privacy ed esercizio dei diritti: support@vcuria.app. Sito: https://vcuria.app/.
+P7M Viewer è sviluppata da Vincenzo Curia. Per assistenza, domande sulla privacy ed esercizio dei diritti: support@vcuria.app. Sito: https://vcuria.app/.
 
 2. Documenti sul dispositivo
 L'app accede ai file scelti dall'utente o ricevuti tramite le funzioni Apri con e Condividi del sistema. I documenti possono contenere dati personali, anche sensibili, e i certificati possono identificare i firmatari. Apertura, estrazione, visualizzazione e verifiche crittografiche avvengono sul dispositivo. Lo sviluppatore non riceve i documenti né i nomi dei file attraverso queste funzioni.
@@ -28,7 +28,7 @@ Per questo trattamento lo sviluppatore opera come titolare; la base giuridica è
 Puoi chiedere informazioni, accesso, rettifica, cancellazione, limitazione, opposizione e portabilità nei casi previsti dal GDPR, scrivendo al contatto indicato. Puoi presentare reclamo al Garante per la protezione dei dati personali: https://www.garanteprivacy.it/. Non possiamo recuperare o cancellare documenti che non riceviamo, né dati conservati autonomamente dagli emittenti o da altre app: per questi rivolgiti ai relativi soggetti.
 
 7. Limiti delle verifiche
-P7M Gratis distingue integrità, catena dei certificati, revoca e marca temporale. Non è un servizio di validazione qualificato e non certifica la validità legale complessiva, la qualificazione eIDAS o la validità storica completa. Verifica anche controfirme e firme interne ai PDF (PAdES), sempre sul dispositivo.
+P7M Viewer distingue integrità, catena dei certificati, revoca e marca temporale. Non è un servizio di validazione qualificato e non certifica la validità legale complessiva, la qualificazione eIDAS o la validità storica completa. Verifica anche controfirme e firme interne ai PDF (PAdES), sempre sul dispositivo.
 
 8. Modifiche
 L'informativa viene aggiornata se cambiano funzionalità o trattamento dei dati. La versione inclusa nell'app resta consultabile offline; quella pubblica riporta la data dell'ultimo aggiornamento.

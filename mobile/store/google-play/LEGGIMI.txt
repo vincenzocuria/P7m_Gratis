@@ -1,4 +1,4 @@
-P7M Gratis 1.2.0 (7) — materiale Google Play
+P7M Viewer 1.3.2 (11) — materiale Google Play
 Pacchetto: app.vcuria.p7m_gratis
 Icona: 512x512. Grafica in primo piano: 1024x500.
 Screenshot reali della versione finale Android, con soli documenti sintetici. PNG senza trasparenza.

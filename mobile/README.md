@@ -1,10 +1,10 @@
-# P7M Gratis mobile 1.2.0
+# P7M Viewer mobile 1.2.0
 
-App gratuita per Android e iOS: apre buste CAdES/PKCS#7, estrae il documento e mostra i risultati delle verifiche. Non richiede account, abbonamenti o pubblicità. I documenti vengono elaborati sul dispositivo.
+App per Android e iOS: apre buste CAdES/PKCS#7, estrae il documento e mostra i risultati delle verifiche. Non richiede account, abbonamenti o pubblicità. I documenti vengono elaborati sul dispositivo.
 
 ## Uso
 
-1. Premi **Apri un P7M o PDF** o apri/condividi un allegato con P7M Gratis.
+1. Premi **Apri un P7M o PDF** o apri/condividi un allegato con P7M Viewer.
 2. Consulta il documento estratto: PDF, immagini, XML o testo. Altri formati possono essere salvati e aperti con l'app adatta.
 3. Nella scheda **Firme**, leggi separatamente integrità, certificato, marca temporale e revoca.
 4. Premi **Controlla revoca online** per contattare gli emittenti dei certificati. Il documento non viene caricato.
