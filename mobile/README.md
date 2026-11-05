@@ -1,4 +1,4 @@
-# P7M Viewer mobile 1.2.0
+# P7M Viewer mobile 1.3.4
 
 App per Android e iOS: apre buste CAdES/PKCS#7, estrae il documento e mostra i risultati delle verifiche. Non richiede account, abbonamenti o pubblicità. I documenti vengono elaborati sul dispositivo.
 
@@ -8,7 +8,8 @@ App per Android e iOS: apre buste CAdES/PKCS#7, estrae il documento e mostra i r
 2. Consulta il documento estratto: PDF, immagini, XML o testo. Altri formati possono essere salvati e aperti con l'app adatta.
 3. Nella scheda **Firme**, leggi separatamente integrità, certificato, marca temporale e revoca.
 4. Premi **Controlla revoca online** per contattare gli emittenti dei certificati. Il documento non viene caricato.
-5. Usa **Salva** o **Condividi** per esportare il contenuto originale estratto.
+5. Usa **Salva** o **Condividi**: per i P7M scegli **Originale completo con le firme** per conservare il file ricevuto con tutte le firme, oppure **Solo documento estratto** per esportare il contenuto senza la busta P7M. Il dialogo mostra i nomi reali, per esempio `fattura.xml.p7m` e `fattura.xml`; la scelta vale per tutti i formati estratti. I PDF aperti direttamente vengono esportati come ricevuti.
+6. Per creare una copia PDF senza cifratura usa **Altre opzioni → Esporta PDF senza password**. Conferma di essere autorizzato, inserisci la password e scegli dove salvare la nuova copia. La conferma viene richiesta ogni volta. La copia può invalidare le firme digitali: conserva l’originale. Il testo della conferma non costituisce una certificazione di conformità legale.
 
 I PDF semplici si aprono direttamente nell’anteprima: la UI indica che non sono buste P7M e non verifica eventuali firme PAdES. Dal pulsante **?** si trovano lo sviluppatore Vincenzo Curia, [vcuria.app](https://vcuria.app/) e il download della versione Windows.
 
@@ -29,6 +30,8 @@ Un segno positivo compare solo con integrità, catena e revoca accertate. Questi
 - Elaborazione crittografica in isolate, ASN.1 con limiti di profondità e complessità; allegati ricevuti durante l'elaborazione vengono gestiti in coda (il più recente resta in attesa).
 - Anteprima testuale fino a 500 KB. I byte esportati non vengono troncati.
 - Firme separate senza originale e verifica PAdES non supportate. Algoritmi non supportati non producono un esito positivo.
+- Le estensioni `.p7s`, `.tsd` e `.m7m` vengono riconosciute su Android. I CMS SignedData con contenuto sono elaborati anche con suffisso `.p7s` o `.m7m`; una firma separata richiede l’originale. I contenitori temporali TSD/M7M non decodificabili non sono supportati: viene mostrato un errore specifico, senza dichiararli danneggiati.
+- Nei PDF con riferimento alla cifratura la verifica delle firme interne resta non accertata, anche dopo l’apertura con password. Le firme P7M esterne vengono valutate separatamente.
 - CRL delta, indirette o parziali e responder delegati senza OCSP no-check restano non accertati.
 - Endpoint pubblici HTTP(S), porte 80/443, senza redirect. DNS risolto e verificato prima della connessione; indirizzi locali/privati rifiutati. Le risposte sono limitate a 16 MB e le richieste hanno timeout.
 

@@ -6,6 +6,70 @@ import 'package:p7m_gratis/main.dart';
 import 'package:p7m_gratis/help.dart';
 
 void main() {
+  for (final extension in ['xml', 'pdf', 'doc', 'docx', 'png', 'txt']) {
+    testWidgets(
+      'Salva mostra nomi reali per $extension, anche su schermo piccolo',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 480);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ExportDocumentDialog(
+              originalName: 'documento.$extension.p7m',
+              extractedName: 'documento.$extension',
+            ),
+          ),
+        );
+        expect(
+          find.textContaining('documento.$extension.p7m\n'),
+          findsOneWidget,
+        );
+        expect(find.textContaining('documento.$extension\n'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+  testWidgets(
+    'Esportazione permette originale firmato, estratto e annullamento',
+    (tester) async {
+      bool? selection;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              return TextButton(
+                onPressed: () async {
+                  selection = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => const ExportDocumentDialog(
+                      originalName: 'fattura.xml.p7m',
+                      extractedName: 'fattura.xml',
+                    ),
+                  );
+                },
+                child: const Text('Esporta'),
+              );
+            },
+          ),
+        ),
+      );
+      for (final option in {
+        'Originale completo con le firme': true,
+        'Solo documento estratto': false,
+        'Annulla': null,
+      }.entries) {
+        await tester.tap(find.text('Esporta'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('fattura.xml.p7m'), findsOneWidget);
+        expect(find.textContaining('fattura.xml\n'), findsOneWidget);
+        await tester.tap(find.text(option.key));
+        await tester.pumpAndSettle();
+        expect(selection, option.value);
+      }
+    },
+  );
   testWidgets('Guida facoltativa e informativa completa disponibili offline', (
     tester,
   ) async {
@@ -65,7 +129,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(SelectableText), findsOneWidget);
       expect(
-        find.textContaining('non sono state trovate firme'),
+        find.textContaining('non sono state rilevate firme'),
         findsOneWidget,
       );
       await tester.tap(find.text('Chiudi'));

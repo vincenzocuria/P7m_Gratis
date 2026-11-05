@@ -14,12 +14,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:pdfrx/pdfrx.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'core/p7m.dart';
 import 'core/temporary_files.dart';
 import 'help.dart';
+import 'pdf_preview.dart';
+import 'pdf_export.dart';
 
 void main() => runApp(const P7mApp());
 
@@ -221,9 +222,13 @@ class _HomeState extends State<Home> {
         data['name'] as String,
       ));
       if (mounted) showDocument(result);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        setState(() => error = 'Allegato non supportato o danneggiato');
+        setState(
+          () => error = e is FormatException
+              ? e.message.toString()
+              : 'Allegato non supportato o danneggiato',
+        );
       }
     } finally {
       if (mounted) {
@@ -291,20 +296,68 @@ class _HomeState extends State<Home> {
     }
   }
 
-  Future<void> export(bool share) async {
+  Future<void> export(bool share, {bool withoutPassword = false}) async {
     final d = doc;
     if (d == null || exporting) return;
     setState(() => exporting = true);
     try {
+      var bytes = d.bytes;
+      var name = d.name;
+      if (withoutPassword) {
+        final consent = await showDialog<bool>(
+          context: context,
+          builder: (_) => const PdfExportConsentDialog(),
+        );
+        if (!mounted || consent != true) return;
+        var attempts = 0;
+        var cancelled = false;
+        try {
+          bytes = await pdfWithoutPassword(
+            bytes,
+            passwordProvider: () async {
+              if (!mounted) {
+                cancelled = true;
+                return null;
+              }
+              final incorrect = attempts++ > 0;
+              final password = await showDialog<String>(
+                context: context,
+                builder: (_) => PdfPasswordDialog(incorrect: incorrect),
+              );
+              cancelled = password == null || !mounted;
+              return cancelled ? null : password;
+            },
+          );
+        } catch (_) {
+          if (cancelled) return;
+          rethrow;
+        }
+        if (!mounted) return;
+        name =
+            '${name.replaceFirst(RegExp(r'\.pdf$', caseSensitive: false), '')}_senza_password.pdf';
+      } else if (!d.isPlainPdf && d.originalBytes != null) {
+        final original = await showDialog<bool>(
+          context: context,
+          builder: (_) => ExportDocumentDialog(
+            originalName: d.originalName!,
+            extractedName: d.name,
+          ),
+        );
+        if (!mounted || original == null) return;
+        if (original) {
+          bytes = d.originalBytes!;
+          name = d.originalName!;
+        }
+      }
       await startupCleanup;
       if (share) {
-        final file = await TemporaryFiles.createExport(d.bytes, d.name);
+        final file = await TemporaryFiles.createExport(bytes, name);
         if (!mounted) return;
         final box = context.findRenderObject() as RenderBox?;
         await SharePlus.instance.share(
           ShareParams(
             files: [XFile(file.path)],
-            fileNameOverrides: [TemporaryFiles.exportName(d.name)],
+            fileNameOverrides: [TemporaryFiles.exportName(name)],
             sharePositionOrigin: box == null
                 ? null
                 : box.localToGlobal(Offset.zero) & box.size,
@@ -312,8 +365,8 @@ class _HomeState extends State<Home> {
         );
       } else {
         final saved = await FilePicker.saveFile(
-          fileName: TemporaryFiles.exportName(d.name),
-          bytes: d.bytes,
+          fileName: TemporaryFiles.exportName(name),
+          bytes: bytes,
         );
         if (mounted && saved != null) {
           ScaffoldMessenger.of(context)
@@ -555,8 +608,12 @@ class _HomeState extends State<Home> {
                     name: d.name,
                     isPlainPdf: d.isPlainPdf,
                     signatureCount: d.signers.length,
+                    signaturesUncertain: d.pdfSignaturesUncertain,
                     onSave: exporting ? null : () => export(false),
                     onShare: exporting ? null : () => export(true),
+                    onSaveWithoutPassword: !exporting && isPdf(d.bytes)
+                        ? () => export(false, withoutPassword: true)
+                        : null,
                   ),
                   if (showSignatures(d))
                     const TabBar(
@@ -583,7 +640,7 @@ class _HomeState extends State<Home> {
                               ),
                               if (d.signers.isEmpty)
                                 const ListTile(
-                                  title: Text('Nessun firmatario presente'),
+                                  title: Text('Nessun firmatario identificato'),
                                 ),
                               FilledButton.tonalIcon(
                                 onPressed:
@@ -654,7 +711,11 @@ class _HomeState extends State<Home> {
     if (d.bytes.length >= 5 &&
         ascii.decode(d.bytes.sublist(0, 5), allowInvalid: true) == '%PDF-') {
       // Keep each document's asynchronous layout separate while switching files.
-      return PdfViewer.data(d.bytes, key: ObjectKey(d), sourceName: d.name);
+      return PasswordPdfPreview(
+        bytes: d.bytes,
+        key: ObjectKey(d),
+        name: d.name,
+      );
     }
     final ext = d.name.toLowerCase().split('.').last;
     if (['png', 'jpg', 'jpeg', 'gif', 'webp'].contains(ext)) {
@@ -713,6 +774,48 @@ class _HomeState extends State<Home> {
   }
 }
 
+class ExportDocumentDialog extends StatelessWidget {
+  const ExportDocumentDialog({
+    super.key,
+    required this.originalName,
+    required this.extractedName,
+  });
+
+  final String originalName;
+  final String extractedName;
+
+  @override
+  Widget build(BuildContext context) => SimpleDialog(
+    title: const Text('Quale file vuoi esportare?'),
+    children: [
+      SimpleDialogOption(
+        onPressed: () => Navigator.pop(context, true),
+        child: ListTile(
+          leading: const Icon(Icons.verified_outlined),
+          title: const Text('Originale completo con le firme'),
+          subtitle: Text(
+            '$originalName\nConserva il file ricevuto, identico e con tutte le firme.',
+          ),
+        ),
+      ),
+      SimpleDialogOption(
+        onPressed: () => Navigator.pop(context, false),
+        child: ListTile(
+          leading: const Icon(Icons.description_outlined),
+          title: const Text('Solo documento estratto'),
+          subtitle: Text(
+            '$extractedName\nSenza la busta e le firme P7M.${extractedName.toLowerCase().endsWith('.pdf') ? ' Eventuali firme interne al PDF restano nel file estratto.' : ''}',
+          ),
+        ),
+      ),
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Annulla'),
+      ),
+    ],
+  );
+}
+
 /// A bounded header keeps long filenames from displacing the document.
 class DocumentHeader extends StatelessWidget {
   const DocumentHeader({
@@ -722,6 +825,8 @@ class DocumentHeader extends StatelessWidget {
     this.signatureCount = 0,
     required this.onSave,
     required this.onShare,
+    this.onSaveWithoutPassword,
+    this.signaturesUncertain = false,
   });
 
   final String name;
@@ -729,14 +834,18 @@ class DocumentHeader extends StatelessWidget {
   final int signatureCount;
   final VoidCallback? onSave;
   final VoidCallback? onShare;
+  final VoidCallback? onSaveWithoutPassword;
+  final bool signaturesUncertain;
 
   @override
   Widget build(BuildContext context) {
-    final type = !isPlainPdf
+    final type = signaturesUncertain
+        ? 'PDF protetto • firme non accertate'
+        : !isPlainPdf
         ? 'P7M • documento estratto'
         : signatureCount > 0
         ? 'PDF firmato (PAdES)'
-        : 'PDF semplice • nessuna firma';
+        : 'PDF • nessuna firma rilevata';
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 4),
       child: Row(
@@ -756,12 +865,20 @@ class DocumentHeader extends StatelessWidget {
                       SelectableText(name),
                       const SizedBox(height: 12),
                       Text(type),
+                      if (signaturesUncertain) ...[
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Il PDF contiene un riferimento alla cifratura. La verifica delle eventuali firme interne non è completa; questo non significa che le firme siano assenti. Le firme P7M esterne sono valutate separatamente.',
+                        ),
+                      ],
                       if (isPlainPdf) ...[
                         const SizedBox(height: 12),
                         Text(
-                          signatureCount > 0
+                          signaturesUncertain
+                              ? 'Conserva il PDF originale per la verifica delle firme.'
+                              : signatureCount > 0
                               ? 'Le firme interne al PDF sono verificate nella scheda Firme.'
-                              : 'Nel PDF non sono state trovate firme digitali.',
+                              : 'Nel PDF non sono state rilevate firme digitali. La rilevazione non garantisce che siano assenti.',
                         ),
                       ],
                     ],
@@ -817,6 +934,17 @@ class DocumentHeader extends StatelessWidget {
             tooltip: 'Condividi',
             icon: const Icon(Icons.share),
           ),
+          if (onSaveWithoutPassword != null)
+            PopupMenuButton<String>(
+              tooltip: 'Altre opzioni',
+              onSelected: (_) => onSaveWithoutPassword!(),
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'withoutPassword',
+                  child: Text('Esporta PDF senza password'),
+                ),
+              ],
+            ),
         ],
       ),
     );

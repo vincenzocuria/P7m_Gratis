@@ -50,15 +50,37 @@ class P7mDocument {
   final String name;
   final List<SignerResult> signers;
   final bool isPlainPdf;
+  final Uint8List? originalBytes;
+  final String? originalName;
+  final bool pdfSignaturesUncertain;
   const P7mDocument(
     this.bytes,
     this.name,
     this.signers, {
     this.isPlainPdf = false,
+    this.originalBytes,
+    this.originalName,
+    this.pdfSignaturesUncertain = false,
   });
 }
 
 P7mDocument decodeDocument((Uint8List, String) input) {
+  final document = _decodeDocument(input);
+  return P7mDocument(
+    document.bytes,
+    document.name,
+    document.signers,
+    isPlainPdf: document.isPlainPdf,
+    originalBytes: input.$1,
+    originalName: input.$2.split(RegExp(r'[/\\]')).last,
+    // Conservative indication: encrypted objects may hide signature dictionaries.
+    pdfSignaturesUncertain:
+        isPdf(document.bytes) &&
+        RegExp(r'/Encrypt\b').hasMatch(latin1.decode(document.bytes)),
+  );
+}
+
+P7mDocument _decodeDocument((Uint8List, String) input) {
   if (input.$1.length > 50 * 1024 * 1024) {
     throw const FormatException('Limite di 50 MB superato');
   }
@@ -69,6 +91,15 @@ P7mDocument decodeDocument((Uint8List, String) input) {
         .last
         .replaceAll(RegExp(r'[\x00-\x1f]'), '_');
     return P7mDocument(bytes, name, verifyPades(bytes), isPlainPdf: true);
+  }
+  final extension = input.$2.toLowerCase().split('.').last;
+  if (['tsd', 'm7m'].contains(extension) &&
+      !isSignedData(unwrapBase64(bytes))) {
+    throw FormatException(
+      'Contenitore ${extension.toUpperCase()} non supportato. '
+      'Usa il programma del fornitore per estrarre il documento e la marca temporale; '
+      'questo messaggio non indica che il file sia danneggiato.',
+    );
   }
   final document = decodeP7m(input);
   if (!isPdf(document.bytes)) return document;
@@ -250,10 +281,16 @@ P7mDocument decodeP7m((Uint8List, String) input) {
       );
     }
     bytes = isSignedData(payload) ? payload : unwrapBase64(payload);
-    name = name.replaceFirst(RegExp(r'\.p7m$', caseSensitive: false), '');
+    name = name.replaceFirst(
+      RegExp(r'\.(p7m|p7s|m7m)$', caseSensitive: false),
+      '',
+    );
     if (!isSignedData(bytes)) {
       bytes = payload;
-      name = name.replaceAll(RegExp(r'(\.p7m)+$', caseSensitive: false), '');
+      name = name.replaceAll(
+        RegExp(r'(\.(p7m|p7s|m7m))+$', caseSensitive: false),
+        '',
+      );
       return P7mDocument(bytes, documentName(name, bytes), results);
     }
   }

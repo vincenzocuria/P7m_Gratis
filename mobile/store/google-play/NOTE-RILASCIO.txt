@@ -1,4 +1,6 @@
 <it-IT>
-• Nuovo nome: P7M Viewer.
-• Informativa privacy aggiornata al nuovo nome.
+• Apertura dei PDF protetti con richiesta della password.
+• Salva e condividi il P7M originale con tutte le firme oppure il solo documento estratto.
+• Esporta una copia PDF senza password dopo aver confermato l’autorizzazione.
+• Errori PDF in italiano con Riprova e indicazioni più prudenti sulle firme nei PDF cifrati.
 </it-IT>

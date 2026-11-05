@@ -37,7 +37,7 @@
                 <data android:mimeType="application/octet-stream" />
                 <data android:mimeType="application/pdf" />
             </intent-filter>
-            <!-- File .p7m senza tipo MIME riconosciuto: alcuni gestori file passano solo il nome. -->
+            <!-- Estensioni senza MIME specifico: il contenuto viene comunque validato. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -50,6 +50,18 @@
                 <data android:pathPattern=".*\\..*\\.p7m" />
                 <data android:pathPattern=".*\\.P7M" />
                 <data android:pathPattern=".*\\..*\\.P7M" />
+                <data android:pathPattern=".*\\.p7s" />
+                <data android:pathPattern=".*\\..*\\.p7s" />
+                <data android:pathPattern=".*\\.P7S" />
+                <data android:pathPattern=".*\\..*\\.P7S" />
+                <data android:pathPattern=".*\\.tsd" />
+                <data android:pathPattern=".*\\..*\\.tsd" />
+                <data android:pathPattern=".*\\.TSD" />
+                <data android:pathPattern=".*\\..*\\.TSD" />
+                <data android:pathPattern=".*\\.m7m" />
+                <data android:pathPattern=".*\\..*\\.m7m" />
+                <data android:pathPattern=".*\\.M7M" />
+                <data android:pathPattern=".*\\..*\\.M7M" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
