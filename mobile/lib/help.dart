@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-const appVersion = '1.3.4 (13)';
+const appVersion = '1.3.5 (14)';
 const privacyUrl = 'https://vincenzocuria.github.io/P7m_Gratis/privacy.html';
 const supportEmail = 'support@vcuria.app';
 

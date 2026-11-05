@@ -336,12 +336,10 @@ class _HomeState extends State<Home> {
         name =
             '${name.replaceFirst(RegExp(r'\.pdf$', caseSensitive: false), '')}_senza_password.pdf';
       } else if (!d.isPlainPdf && d.originalBytes != null) {
-        final original = await showDialog<bool>(
+        final original = await showModalBottomSheet<bool>(
           context: context,
-          builder: (_) => ExportDocumentDialog(
-            originalName: d.originalName!,
-            extractedName: d.name,
-          ),
+          showDragHandle: false,
+          builder: (_) => const ExportDocumentDialog(),
         );
         if (!mounted || original == null) return;
         if (original) {
@@ -775,45 +773,52 @@ class _HomeState extends State<Home> {
 }
 
 class ExportDocumentDialog extends StatelessWidget {
-  const ExportDocumentDialog({
-    super.key,
-    required this.originalName,
-    required this.extractedName,
-  });
-
-  final String originalName;
-  final String extractedName;
+  const ExportDocumentDialog({super.key});
 
   @override
-  Widget build(BuildContext context) => SimpleDialog(
-    title: const Text('Quale file vuoi esportare?'),
-    children: [
-      SimpleDialogOption(
-        onPressed: () => Navigator.pop(context, true),
-        child: ListTile(
-          leading: const Icon(Icons.verified_outlined),
-          title: const Text('Originale completo con le firme'),
-          subtitle: Text(
-            '$originalName\nConserva il file ricevuto, identico e con tutte le firme.',
-          ),
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(
+                    alpha: 0.4,
+                  ),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(context, false),
+              icon: const Icon(Icons.description_outlined),
+              label: const Text('Salva documento'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(context, true),
+              icon: const Icon(Icons.verified_outlined),
+              label: const Text('Salva originale .p7m'),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annulla'),
+            ),
+          ],
         ),
       ),
-      SimpleDialogOption(
-        onPressed: () => Navigator.pop(context, false),
-        child: ListTile(
-          leading: const Icon(Icons.description_outlined),
-          title: const Text('Solo documento estratto'),
-          subtitle: Text(
-            '$extractedName\nSenza la busta e le firme P7M.${extractedName.toLowerCase().endsWith('.pdf') ? ' Eventuali firme interne al PDF restano nel file estratto.' : ''}',
-          ),
-        ),
-      ),
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Annulla'),
-      ),
-    ],
-  );
+    );
+  }
 }
 
 /// A bounded header keeps long filenames from displacing the document.

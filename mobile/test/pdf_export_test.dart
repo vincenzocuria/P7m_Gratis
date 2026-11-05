@@ -36,11 +36,11 @@ void main() {
       tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
       isNull,
     );
-    expect(find.textContaining('colpa grave'), findsOneWidget);
+    expect(find.textContaining('copia senza protezione'), findsOneWidget);
     await tester.ensureVisible(find.byType(CheckboxListTile));
     await tester.tap(find.byType(CheckboxListTile));
     await tester.pump();
-    await tester.tap(find.text('Crea copia senza password'));
+    await tester.tap(find.text('Continua'));
     await tester.pumpAndSettle();
     expect(result, true);
     await tester.tap(find.text('Esporta'));

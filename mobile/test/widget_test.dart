@@ -6,31 +6,22 @@ import 'package:p7m_gratis/main.dart';
 import 'package:p7m_gratis/help.dart';
 
 void main() {
-  for (final extension in ['xml', 'pdf', 'doc', 'docx', 'png', 'txt']) {
-    testWidgets(
-      'Salva mostra nomi reali per $extension, anche su schermo piccolo',
-      (tester) async {
-        tester.view.physicalSize = const Size(320, 480);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        await tester.pumpWidget(
-          MaterialApp(
-            home: ExportDocumentDialog(
-              originalName: 'documento.$extension.p7m',
-              extractedName: 'documento.$extension',
-            ),
-          ),
-        );
-        expect(
-          find.textContaining('documento.$extension.p7m\n'),
-          findsOneWidget,
-        );
-        expect(find.textContaining('documento.$extension\n'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
+  testWidgets(
+    'Salva: tasti semplici senza nomi file, anche su schermo piccolo',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 480);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(const MaterialApp(home: ExportDocumentDialog()));
+      expect(find.text('Salva documento'), findsOneWidget);
+      expect(find.text('Salva originale .p7m'), findsOneWidget);
+      expect(find.text('Annulla'), findsOneWidget);
+      expect(find.textContaining('.p7m\n'), findsNothing);
+      expect(find.textContaining('Conserva'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'Esportazione permette originale firmato, estratto e annullamento',
     (tester) async {
@@ -41,12 +32,9 @@ void main() {
             builder: (context) {
               return TextButton(
                 onPressed: () async {
-                  selection = await showDialog<bool>(
+                  selection = await showModalBottomSheet<bool>(
                     context: context,
-                    builder: (_) => const ExportDocumentDialog(
-                      originalName: 'fattura.xml.p7m',
-                      extractedName: 'fattura.xml',
-                    ),
+                    builder: (_) => const ExportDocumentDialog(),
                   );
                 },
                 child: const Text('Esporta'),
@@ -56,14 +44,14 @@ void main() {
         ),
       );
       for (final option in {
-        'Originale completo con le firme': true,
-        'Solo documento estratto': false,
+        'Salva originale .p7m': true,
+        'Salva documento': false,
         'Annulla': null,
       }.entries) {
         await tester.tap(find.text('Esporta'));
         await tester.pumpAndSettle();
-        expect(find.textContaining('fattura.xml.p7m'), findsOneWidget);
-        expect(find.textContaining('fattura.xml\n'), findsOneWidget);
+        expect(find.text('Salva documento'), findsOneWidget);
+        expect(find.text('Salva originale .p7m'), findsOneWidget);
         await tester.tap(find.text(option.key));
         await tester.pumpAndSettle();
         expect(selection, option.value);
