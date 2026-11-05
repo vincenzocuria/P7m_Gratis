@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:pdfrx/pdfrx.dart';
@@ -15,11 +16,16 @@ class PasswordPdfPreview extends StatefulWidget {
     required this.bytes,
     required this.name,
     this.loadTimeout = const Duration(seconds: 20),
+    this.onPassword,
   });
 
   final Uint8List bytes;
   final String name;
   final Duration loadTimeout;
+
+  /// Called with the password that successfully unlocked the PDF, or with
+  /// null when the document opened without one.
+  final ValueChanged<String?>? onPassword;
 
   @override
   State<PasswordPdfPreview> createState() => _PasswordPdfPreviewState();
@@ -33,7 +39,9 @@ class _PasswordPdfPreviewState extends State<PasswordPdfPreview> {
   var _ready = false;
   var _stalled = false;
   var _empty = false;
+  String? _lastPassword;
   Timer? _watchdog;
+  final _controller = PdfViewerController();
   late PdfDocumentRef _ref = _createRef();
 
   // A key unique to this preview instance and attempt: pdfrx shares loaded
@@ -100,7 +108,10 @@ class _PasswordPdfPreviewState extends State<PasswordPdfPreview> {
     }
     _cancelled = password == null;
     if (!mounted) return null;
-    if (!_cancelled) _startWatchdog();
+    if (!_cancelled) {
+      _lastPassword = password;
+      _startWatchdog();
+    }
     setState(() {});
     return password;
   }
@@ -112,10 +123,28 @@ class _PasswordPdfPreviewState extends State<PasswordPdfPreview> {
       _stalled = false;
       _ready = false;
       _empty = false;
+      _lastPassword = null;
       _revision++;
       _ref = _createRef();
     });
     _startWatchdog();
+  }
+
+  bool _onTap(
+    BuildContext context,
+    PdfViewerController controller,
+    PdfViewerGeneralTapHandlerDetails details,
+  ) {
+    if (details.type != PdfViewerGeneralTapType.doubleTap) return false;
+    if (!controller.isReady) return false;
+    final fit = controller.alternativeFitScale ?? controller.minScale;
+    final nearFit = controller.currentZoom <= fit * 1.15;
+    if (nearFit) {
+      unawaited(controller.zoomUp(zoomCenter: details.documentPosition));
+    } else {
+      unawaited(controller.setZoom(details.documentPosition, fit));
+    }
+    return true;
   }
 
   Widget _message(String text, {bool retry = true}) => Center(
@@ -151,7 +180,16 @@ class _PasswordPdfPreviewState extends State<PasswordPdfPreview> {
     return PdfViewer(
       _ref,
       key: ValueKey(_ref.key),
+      controller: _controller,
       params: PdfViewerParams(
+        sizeDelegateProvider: const PdfViewerSizeDelegateProviderLegacy(
+          maxScale: 8,
+          minScale: 0.25,
+          useAlternativeFitScaleAsMinScale: true,
+        ),
+        panEnabled: true,
+        scaleEnabled: true,
+        onGeneralTap: _onTap,
         loadingBannerBuilder: (context, downloaded, total) => Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -165,6 +203,7 @@ class _PasswordPdfPreviewState extends State<PasswordPdfPreview> {
         onViewerReady: (document, controller) {
           _ready = true;
           _watchdog?.cancel();
+          widget.onPassword?.call(_lastPassword);
           if (document.pages.isEmpty && mounted) {
             setState(() => _empty = true);
           }

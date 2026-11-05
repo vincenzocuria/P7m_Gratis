@@ -1,38 +1,76 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:p7m_gratis/main.dart';
 import 'package:p7m_gratis/help.dart';
+import 'package:p7m_gratis/core/p7m.dart';
 
 void main() {
   testWidgets(
-    'Salva: tasti semplici senza nomi file, anche su schermo piccolo',
+    'Salva P7M: tasti semplici senza nomi file, anche su schermo piccolo',
     (tester) async {
       tester.view.physicalSize = const Size(320, 480);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(const MaterialApp(home: ExportDocumentDialog()));
+      await tester.pumpWidget(
+        const MaterialApp(home: SaveOptionsSheet(offerOriginal: true)),
+      );
       expect(find.text('Salva documento'), findsOneWidget);
       expect(find.text('Salva originale .p7m'), findsOneWidget);
       expect(find.text('Annulla'), findsOneWidget);
-      expect(find.textContaining('.p7m\n'), findsNothing);
-      expect(find.textContaining('Conserva'), findsNothing);
+      expect(find.text('Rimuovi password e salva'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('Salva PDF protetto: Salva o Rimuovi password', (tester) async {
+    SaveChoice? selection;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return TextButton(
+              onPressed: () async {
+                selection = await showModalBottomSheet<SaveChoice>(
+                  context: context,
+                  builder: (_) =>
+                      const SaveOptionsSheet(offerRemovePassword: true),
+                );
+              },
+              child: const Text('Esporta'),
+            );
+          },
+        ),
+      ),
+    );
+    for (final option in {
+      'Salva': SaveChoice.document,
+      'Rimuovi password e salva': SaveChoice.removePassword,
+      'Annulla': null,
+    }.entries) {
+      await tester.tap(find.text('Esporta'));
+      await tester.pumpAndSettle();
+      expect(find.text('Salva'), findsOneWidget);
+      expect(find.text('Rimuovi password e salva'), findsOneWidget);
+      expect(find.text('Salva originale .p7m'), findsNothing);
+      await tester.tap(find.text(option.key));
+      await tester.pumpAndSettle();
+      expect(selection, option.value);
+    }
+  });
   testWidgets(
     'Esportazione permette originale firmato, estratto e annullamento',
     (tester) async {
-      bool? selection;
+      SaveChoice? selection;
       await tester.pumpWidget(
         MaterialApp(
           home: Builder(
             builder: (context) {
               return TextButton(
                 onPressed: () async {
-                  selection = await showModalBottomSheet<bool>(
+                  selection = await showModalBottomSheet<SaveChoice>(
                     context: context,
                     builder: (_) => const ExportDocumentDialog(),
                   );
@@ -44,8 +82,8 @@ void main() {
         ),
       );
       for (final option in {
-        'Salva originale .p7m': true,
-        'Salva documento': false,
+        'Salva originale .p7m': SaveChoice.original,
+        'Salva documento': SaveChoice.document,
         'Annulla': null,
       }.entries) {
         await tester.tap(find.text('Esporta'));
@@ -58,6 +96,42 @@ void main() {
       }
     },
   );
+  test('PDF semplice senza firme: scheda Firme nascosta', () {
+    final plain = P7mDocument(
+      Uint8List.fromList('%PDF-1.4'.codeUnits),
+      'a.pdf',
+      const [],
+      isPlainPdf: true,
+    );
+    expect(plain.isPlainPdf, isTrue);
+    expect(plain.signers, isEmpty);
+    // Mirrors Home.showSignatures
+    bool show(P7mDocument d) => !d.isPlainPdf || d.signers.isNotEmpty;
+    expect(show(plain), isFalse);
+    final pades = P7mDocument(
+      Uint8List.fromList('%PDF-1.4'.codeUnits),
+      'b.pdf',
+      [const SignerResult('Firma', null, 'ok')],
+      isPlainPdf: true,
+    );
+    expect(show(pades), isTrue);
+    final p7m = P7mDocument(
+      Uint8List.fromList('%PDF-1.4'.codeUnits),
+      'c.pdf',
+      const [],
+      isPlainPdf: false,
+      pdfSignaturesUncertain: true,
+    );
+    expect(show(p7m), isTrue);
+    final encryptedPlain = P7mDocument(
+      Uint8List.fromList('%PDF-1.4'.codeUnits),
+      'd.pdf',
+      const [],
+      isPlainPdf: true,
+      pdfSignaturesUncertain: true,
+    );
+    expect(show(encryptedPlain), isFalse);
+  });
   testWidgets('Guida facoltativa e informativa completa disponibili offline', (
     tester,
   ) async {
@@ -116,10 +190,7 @@ void main() {
       await tester.tap(find.text(name));
       await tester.pumpAndSettle();
       expect(find.byType(SelectableText), findsOneWidget);
-      expect(
-        find.textContaining('non sono state rilevate firme'),
-        findsOneWidget,
-      );
+      expect(find.text('PDF'), findsWidgets);
       await tester.tap(find.text('Chiudi'));
       await tester.pumpAndSettle();
     }

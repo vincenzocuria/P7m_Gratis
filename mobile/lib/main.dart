@@ -56,6 +56,7 @@ class _HomeState extends State<Home> {
   List<String> timestampDetails = [];
   bool checkingRevocation = false;
   int generation = 0;
+  String? unlockedPassword;
   Future<void> updateCertificates(P7mDocument document, int id) async {
     for (var i = 0; i < document.signers.length; i++) {
       final assessment = await CertificateService.assess(document.signers[i]);
@@ -99,6 +100,7 @@ class _HomeState extends State<Home> {
     final id = ++generation;
     setState(() {
       doc = document;
+      unlockedPassword = null;
       officePreview =
           officeExtensions.contains(document.name.toLowerCase().split('.').last)
           ? compute(officeText, document.bytes)
@@ -303,7 +305,28 @@ class _HomeState extends State<Home> {
     try {
       var bytes = d.bytes;
       var name = d.name;
+      final protected = isPdf(d.bytes) && d.pdfSignaturesUncertain;
+      final isP7m = !d.isPlainPdf && d.originalBytes != null;
+      SaveChoice? choice;
       if (withoutPassword) {
+        choice = SaveChoice.removePassword;
+      } else if (isP7m || protected) {
+        choice = await showModalBottomSheet<SaveChoice>(
+          context: context,
+          showDragHandle: false,
+          builder: (_) => SaveOptionsSheet(
+            offerOriginal: isP7m,
+            offerRemovePassword: protected,
+          ),
+        );
+        if (!mounted || choice == null) return;
+      } else {
+        choice = SaveChoice.document;
+      }
+      if (choice == SaveChoice.original) {
+        bytes = d.originalBytes!;
+        name = d.originalName!;
+      } else if (choice == SaveChoice.removePassword) {
         final consent = await showDialog<bool>(
           context: context,
           builder: (_) => const PdfExportConsentDialog(),
@@ -311,10 +334,15 @@ class _HomeState extends State<Home> {
         if (!mounted || consent != true) return;
         var attempts = 0;
         var cancelled = false;
+        final known = unlockedPassword;
         try {
           bytes = await pdfWithoutPassword(
             bytes,
             passwordProvider: () async {
+              if (known != null && attempts == 0) {
+                attempts++;
+                return known;
+              }
               if (!mounted) {
                 cancelled = true;
                 return null;
@@ -335,17 +363,6 @@ class _HomeState extends State<Home> {
         if (!mounted) return;
         name =
             '${name.replaceFirst(RegExp(r'\.pdf$', caseSensitive: false), '')}_senza_password.pdf';
-      } else if (!d.isPlainPdf && d.originalBytes != null) {
-        final original = await showModalBottomSheet<bool>(
-          context: context,
-          showDragHandle: false,
-          builder: (_) => const ExportDocumentDialog(),
-        );
-        if (!mounted || original == null) return;
-        if (original) {
-          bytes = d.originalBytes!;
-          name = d.originalName!;
-        }
       }
       await startupCleanup;
       if (share) {
@@ -609,9 +626,6 @@ class _HomeState extends State<Home> {
                     signaturesUncertain: d.pdfSignaturesUncertain,
                     onSave: exporting ? null : () => export(false),
                     onShare: exporting ? null : () => export(true),
-                    onSaveWithoutPassword: !exporting && isPdf(d.bytes)
-                        ? () => export(false, withoutPassword: true)
-                        : null,
                   ),
                   if (showSignatures(d))
                     const TabBar(
@@ -622,6 +636,7 @@ class _HomeState extends State<Home> {
                     ),
                   Expanded(
                     child: TabBarView(
+                      physics: const NeverScrollableScrollPhysics(),
                       children: [
                         preview(d),
                         if (showSignatures(d))
@@ -703,7 +718,12 @@ class _HomeState extends State<Home> {
     );
   }
 
-  bool showSignatures(P7mDocument d) => !d.isPlainPdf || d.signers.isNotEmpty;
+  bool showSignatures(P7mDocument d) {
+    // P7M containers always keep the signatures tab. Plain PDFs only when
+    // embedded PAdES signatures were found. Encrypted plain PDFs hide it.
+    if (!d.isPlainPdf) return true;
+    return d.signers.isNotEmpty;
+  }
 
   Widget preview(P7mDocument d) {
     if (d.bytes.length >= 5 &&
@@ -713,11 +733,16 @@ class _HomeState extends State<Home> {
         bytes: d.bytes,
         key: ObjectKey(d),
         name: d.name,
+        onPassword: (password) {
+          if (mounted) setState(() => unlockedPassword = password);
+        },
       );
     }
     final ext = d.name.toLowerCase().split('.').last;
     if (['png', 'jpg', 'jpeg', 'gif', 'webp'].contains(ext)) {
       return InteractiveViewer(
+        minScale: 0.5,
+        maxScale: 8,
         child: Center(
           child: Image.memory(
             d.bytes,
@@ -772,8 +797,19 @@ class _HomeState extends State<Home> {
   }
 }
 
-class ExportDocumentDialog extends StatelessWidget {
-  const ExportDocumentDialog({super.key});
+/// Choices offered by [SaveOptionsSheet].
+enum SaveChoice { document, original, removePassword }
+
+/// Compact bottom sheet for save/share: only the needed buttons, no file names.
+class SaveOptionsSheet extends StatelessWidget {
+  const SaveOptionsSheet({
+    super.key,
+    this.offerOriginal = false,
+    this.offerRemovePassword = false,
+  });
+
+  final bool offerOriginal;
+  final bool offerRemovePassword;
 
   @override
   Widget build(BuildContext context) {
@@ -799,16 +835,27 @@ class ExportDocumentDialog extends StatelessWidget {
               ),
             ),
             FilledButton.icon(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(context, SaveChoice.document),
               icon: const Icon(Icons.description_outlined),
-              label: const Text('Salva documento'),
+              label: Text(offerRemovePassword ? 'Salva' : 'Salva documento'),
             ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.pop(context, true),
-              icon: const Icon(Icons.verified_outlined),
-              label: const Text('Salva originale .p7m'),
-            ),
+            if (offerRemovePassword) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    Navigator.pop(context, SaveChoice.removePassword),
+                icon: const Icon(Icons.lock_open_outlined),
+                label: const Text('Rimuovi password e salva'),
+              ),
+            ],
+            if (offerOriginal) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.pop(context, SaveChoice.original),
+                icon: const Icon(Icons.verified_outlined),
+                label: const Text('Salva originale .p7m'),
+              ),
+            ],
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -821,6 +868,16 @@ class ExportDocumentDialog extends StatelessWidget {
   }
 }
 
+/// Kept for older tests and as a thin wrapper around [SaveOptionsSheet]
+/// for P7M documents without password options.
+class ExportDocumentDialog extends StatelessWidget {
+  const ExportDocumentDialog({super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      const SaveOptionsSheet(offerOriginal: true);
+}
+
 /// A bounded header keeps long filenames from displacing the document.
 class DocumentHeader extends StatelessWidget {
   const DocumentHeader({
@@ -830,7 +887,6 @@ class DocumentHeader extends StatelessWidget {
     this.signatureCount = 0,
     required this.onSave,
     required this.onShare,
-    this.onSaveWithoutPassword,
     this.signaturesUncertain = false,
   });
 
@@ -839,18 +895,17 @@ class DocumentHeader extends StatelessWidget {
   final int signatureCount;
   final VoidCallback? onSave;
   final VoidCallback? onShare;
-  final VoidCallback? onSaveWithoutPassword;
   final bool signaturesUncertain;
 
   @override
   Widget build(BuildContext context) {
-    final type = signaturesUncertain
-        ? 'PDF protetto • firme non accertate'
-        : !isPlainPdf
+    final type = !isPlainPdf
         ? 'P7M • documento estratto'
         : signatureCount > 0
         ? 'PDF firmato (PAdES)'
-        : 'PDF • nessuna firma rilevata';
+        : signaturesUncertain
+        ? 'PDF protetto'
+        : 'PDF';
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 4),
       child: Row(
@@ -870,20 +925,16 @@ class DocumentHeader extends StatelessWidget {
                       SelectableText(name),
                       const SizedBox(height: 12),
                       Text(type),
-                      if (signaturesUncertain) ...[
+                      if (signaturesUncertain && !isPlainPdf) ...[
                         const SizedBox(height: 12),
                         const Text(
-                          'Il PDF contiene un riferimento alla cifratura. La verifica delle eventuali firme interne non è completa; questo non significa che le firme siano assenti. Le firme P7M esterne sono valutate separatamente.',
+                          'Il PDF estratto è protetto: la verifica delle firme interne non è completa.',
                         ),
                       ],
-                      if (isPlainPdf) ...[
+                      if (isPlainPdf && signatureCount > 0) ...[
                         const SizedBox(height: 12),
-                        Text(
-                          signaturesUncertain
-                              ? 'Conserva il PDF originale per la verifica delle firme.'
-                              : signatureCount > 0
-                              ? 'Le firme interne al PDF sono verificate nella scheda Firme.'
-                              : 'Nel PDF non sono state rilevate firme digitali. La rilevazione non garantisce che siano assenti.',
+                        const Text(
+                          'Le firme interne al PDF sono verificate nella scheda Firme.',
                         ),
                       ],
                     ],
@@ -939,17 +990,6 @@ class DocumentHeader extends StatelessWidget {
             tooltip: 'Condividi',
             icon: const Icon(Icons.share),
           ),
-          if (onSaveWithoutPassword != null)
-            PopupMenuButton<String>(
-              tooltip: 'Altre opzioni',
-              onSelected: (_) => onSaveWithoutPassword!(),
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: 'withoutPassword',
-                  child: Text('Esporta PDF senza password'),
-                ),
-              ],
-            ),
         ],
       ),
     );
