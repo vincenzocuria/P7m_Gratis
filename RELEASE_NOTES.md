@@ -1,3 +1,12 @@
+## P7M Viewer PA 2.4.0 - PDF protetti e salvataggio
+
+- Richiesta password in italiano per PDF diretti e contenuti in P7M, con riprova e annullamento.
+- Salvataggio del documento estratto oppure dell'originale ricevuto, conservato byte per byte.
+- Esportazione di una copia PDF senza password, verificata riaprendola, con conferma esplicita dell'autorizzazione e avviso sulle firme digitali.
+- L'esportazione di un documento estratto o riscritto non può sovrascrivere il percorso dell'originale.
+- I PDF cifrati sono segnalati con firme interne non verificate; lo sblocco dell'anteprima non costituisce verifica delle firme.
+- TSD/M7M: apertura dei contenitori CMS SignedData riconosciuti; messaggio dedicato per gli altri formati, senza dichiararli danneggiati. Non implica verifica completa delle marche temporali di questi formati.
+
 ## P7M Viewer PA 2.3.1 - Correzione documenti Word
 
 Correzione di sicurezza per l'anteprima dei documenti Word 97-2003 (`.doc`) introdotta nella 2.3.0.

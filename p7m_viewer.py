@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QTextEdit, QTreeWidget, QTreeWidgetItem, QScrollArea, QMessageBox,
     QFrame, QToolBar, QStatusBar, QLineEdit, QGroupBox, QTabWidget,
     QSizePolicy, QFormLayout, QGridLayout, QMenuBar, QMenu, QToolButton,
-    QProgressBar, QDialog
+    QProgressBar, QDialog, QInputDialog, QCheckBox
 )
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
 
@@ -32,7 +32,7 @@ except ImportError:
 from p7m_decoder import P7MDecoder
 from services.office_text import extract_text
 
-APP_VERSION = "2.3.1"
+APP_VERSION = "2.4.0"
 GITHUB_REPO = "vincenzocuria/P7m_Gratis"
 
 
@@ -1105,7 +1105,7 @@ class P7MViewerWindow(QMainWindow):
             self,
             "Seleziona File Firmato (CAdES / PAdES / XAdES / ASiC) o Documento",
             "",
-            "File Firmati e Documenti (*.p7m *.p7s *.p7c *.p7b *.pdf *.xml *.asice *.asics *.zip *.txt *.png *.jpg);;Tutti i file (*.*)"
+            "File Firmati e Documenti (*.p7m *.p7s *.p7c *.p7b *.tsd *.m7m *.pdf *.xml *.asice *.asics *.zip *.txt *.png *.jpg);;Tutti i file (*.*)"
         )
         if filepath:
             self.load_file(filepath)
@@ -1169,6 +1169,7 @@ class P7MViewerWindow(QMainWindow):
             return
 
         self.current_data = res
+        self.current_source_path = filepath
         self.add_recent_file(filepath)
 
         self.btn_export.setEnabled(True)
@@ -1277,6 +1278,9 @@ class P7MViewerWindow(QMainWindow):
 
     # --- RENDERERS ---
     def _render_pdf(self, payload: bytes):
+        self.pdf_document.close()
+        self.pdf_document.setPassword("")
+        self.pdf_password = ""
         if self.temp_pdf_file and os.path.exists(self.temp_pdf_file):
             try:
                 os.remove(self.temp_pdf_file)
@@ -1287,7 +1291,22 @@ class P7MViewerWindow(QMainWindow):
         os.write(fd, payload)
         os.close(fd)
 
-        self.pdf_document.load(self.temp_pdf_file)
+        error = self.pdf_document.load(self.temp_pdf_file)
+        while error == QPdfDocument.Error.IncorrectPassword:
+            password, accepted = QInputDialog.getText(
+                self, "PDF protetto", "Inserisci la password del PDF (riprova se errata):",
+                QLineEdit.EchoMode.Password)
+            if not accepted:
+                self._render_text(b"Apertura del PDF protetto annullata. Puoi salvare il documento originale o riaprirlo per riprovare.", "text/plain")
+                return
+            self.pdf_document.close()
+            self.pdf_document.setPassword(password)
+            error = self.pdf_document.load(self.temp_pdf_file)
+            if error == QPdfDocument.Error.None_:
+                self.pdf_password = password
+        if error != QPdfDocument.Error.None_:
+            self._render_text("Impossibile visualizzare il PDF: file danneggiato o formato non supportato. Il contenuto resta esportabile.".encode(), "text/plain")
+            return
         self.view_stack.setCurrentWidget(self.pdf_page)
         self._fit_pdf()
 
@@ -1443,7 +1462,41 @@ class P7MViewerWindow(QMainWindow):
         if not self.current_data:
             return
         
+        choices = ["Documento estratto", "Originale ricevuto"]
+        if self.current_data["mime_type"] == "application/pdf" and self.pdf_document.pageCount() > 0:
+            choices.append("Copia PDF senza password")
+        choice, accepted = QInputDialog.getItem(self, "Salva", "Cosa vuoi salvare?", choices, 0, False)
+        if not accepted:
+            return
         default_name = self.current_data["suggested_filename"]
+        content = self.current_data["payload"]
+        if choice == "Originale ricevuto":
+            try:
+                content = self.current_data["original_bytes"]
+                default_name = os.path.basename(self.current_source_path)
+            except (OSError, KeyError) as exc:
+                QMessageBox.critical(self, "Originale non disponibile", str(exc))
+                return
+        elif choice == "Copia PDF senza password":
+            box = QMessageBox(self)
+            box.setWindowTitle("Esporta copia senza password")
+            box.setText("La copia sarà leggibile senza password. Conservala e condividila con attenzione. "
+                        "La riscrittura può invalidare le firme digitali: conserva l'originale per verificarle. "
+                        "Restano ferme le responsabilità previste dalla legge.")
+            consent = QCheckBox("Confermo di essere autorizzato a rimuovere la protezione e creare questa copia.")
+            box.setCheckBox(consent)
+            box.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+            box.button(QMessageBox.Ok).setEnabled(False)
+            consent.toggled.connect(box.button(QMessageBox.Ok).setEnabled)
+            if box.exec() != QMessageBox.Ok or not consent.isChecked():
+                return
+            try:
+                from services.pdf_security import unlocked_copy
+                content = unlocked_copy(content, self.pdf_password)
+                default_name = os.path.splitext(default_name)[0] + "_senza_password.pdf"
+            except Exception as exc:
+                QMessageBox.critical(self, "Esportazione non riuscita", str(exc))
+                return
         filepath, _ = QFileDialog.getSaveFileName(
             self,
             "Esporta Contenuto Estratto",
@@ -1451,9 +1504,12 @@ class P7MViewerWindow(QMainWindow):
             "Tutti i file (*.*)"
         )
         if filepath:
+            if choice != "Originale ricevuto" and os.path.normcase(os.path.realpath(filepath)) == os.path.normcase(os.path.realpath(self.current_source_path)):
+                QMessageBox.warning(self, "Conserva l'originale", "Scegli un altro nome: il documento originale deve essere conservato.")
+                return
             try:
                 with open(filepath, "wb") as f:
-                    f.write(self.current_data["payload"])
+                    f.write(content)
                 QMessageBox.information(self, "Esportazione Completata", f"File salvato con successo in:\n{filepath}")
                 self.lbl_status_msg.setText(f"File salvato: {filepath}")
             except Exception as e:

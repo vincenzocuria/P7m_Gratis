@@ -55,7 +55,7 @@ class P7MDecoder:
     @staticmethod
     def is_p7m_file(filepath: str) -> bool:
         ext = os.path.splitext(filepath)[1].lower()
-        return ext in ('.p7m', '.p7s', '.p7c', '.p7b')
+        return ext in ('.p7m', '.p7s', '.p7c', '.p7b', '.tsd', '.m7m')
 
     @classmethod
     def decode_file(cls, filepath_or_bytes: Any, detached_content: Optional[bytes] = None) -> Dict[str, Any]:
@@ -84,6 +84,8 @@ class P7MDecoder:
 
         # Clean PEM header if raw text PEM
         data_clean = cls._strip_pem_if_needed(data)
+        if original_filename.lower().endswith(('.tsd', '.m7m')) and not cls._is_signed_data(data_clean):
+            return {"success": False, "error": "Contenitore TSD/M7M non supportato. Usa il programma del fornitore per estrarre il documento e la marca temporale. Questo non indica che il file sia danneggiato.", "original_filename": original_filename}
         container_name = None
         signature_format = None
         allow_nested = True
@@ -210,6 +212,7 @@ class P7MDecoder:
             "original_filename": original_filename,
             "suggested_filename": inner_name,
             "payload": payload,
+            "original_bytes": data,
             "payload_size": len(payload),
             "mime_type": mime_type,
             "ext": ext,
@@ -345,6 +348,10 @@ class P7MDecoder:
 
     @classmethod
     def _read_pades(cls, pdf: bytes):
+        # Encryption may hide signature dictionaries: absence cannot be asserted.
+        if re.search(rb'/Encrypt\b', pdf):
+            message = "PDF protetto: le firme interne non sono verificate. Conserva l'originale; lo sblocco dell'anteprima non verifica le firme."
+            return [cls._unverified_signer("PDF protetto (firme non verificate)", message)], message, False
         signatures = extract_pades_signatures(pdf) if HAS_CONTAINER_SIGNATURES else []
         covering = [item for item in signatures if item["supported"] and item["covers_document"]]
         if covering:
