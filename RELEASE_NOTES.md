@@ -1,3 +1,9 @@
+## P7M Viewer PA 2.4.1 - Nuova icona Windows
+
+- Nuova icona con colori chiari, sfondo trasparente e senza cornice esterna.
+- Icona Windows con risoluzioni da 16 a 256 pixel per desktop, collegamenti e installer.
+- Mantiene le funzionalità della 2.4.0 per PDF protetti e salvataggio.
+
 ## P7M Viewer PA 2.4.0 - PDF protetti e salvataggio
 
 - Richiesta password in italiano per PDF diretti e contenuti in P7M, con riprova e annullamento.
